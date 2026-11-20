@@ -1,0 +1,1587 @@
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Watchlist Today</title>
+<style>
+:root {
+  /* The email's palette (reporting/email/layout.py and reporter.py). */
+  --paper: #f4f5f7;
+  --surface: #ffffff;
+  --surface-sunk: #f9fafb;
+  --ink: #1c2129;
+  --ink-soft: #344054;
+  --muted: #667085;
+  --rule: #f2f4f7;
+  --rule-strong: #e5e7eb;
+  --accent: #344054;
+  --accent-soft: #f2f4f7;
+  --gain: #067647;
+  --gain-soft: #ecfdf3;
+  --loss: #b42318;
+  --loss-soft: #fef3f2;
+  --focus: #344054;
+  --pull: #b54708;
+  --pull-soft: #fffaeb;
+  --stale: #93370d;
+  --stale-soft: #fef0c7;
+  --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #0f1217;
+    --surface: #171b22;
+    --surface-sunk: #1c212a;
+    --ink: #e6e9ee;
+    --ink-soft: #c3c9d3;
+    --muted: #8d96a5;
+    --rule: #222833;
+    --rule-strong: #2e3542;
+    --accent: #c3c9d3;
+    --accent-soft: #252b36;
+    --gain: #47c98a;
+    --gain-soft: #10281c;
+    --loss: #f47066;
+    --loss-soft: #321a19;
+    --focus: #c3c9d3;
+    --pull: #f7b955;
+    --pull-soft: #2e230f;
+    --pull: #f7b955;
+  --pull-soft: #2e230f;
+  --stale: #fec84b;
+    --stale-soft: #3a2a0c;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #0f1217;
+  --surface: #171b22;
+  --surface-sunk: #1c212a;
+  --ink: #e6e9ee;
+  --ink-soft: #c3c9d3;
+  --muted: #8d96a5;
+  --rule: #222833;
+  --rule-strong: #2e3542;
+  --accent: #c3c9d3;
+  --accent-soft: #252b36;
+  --gain: #47c98a;
+  --gain-soft: #10281c;
+  --loss: #f47066;
+  --loss-soft: #321a19;
+  --focus: #c3c9d3;
+  --stale: #fec84b;
+  --stale-soft: #3a2a0c;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--ui);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.page {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding-inline: 16px;
+  padding-block: 20px 40px;
+  display: grid;
+  gap: 18px;
+}
+
+/* ---- header: the email's kicker, title and count badge ------------------- */
+.masthead {
+  display: grid;
+  gap: 6px;
+}
+.kicker {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.masthead h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.stamp {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.fresh {
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.fresh.old { color: var(--stale); background: var(--stale-soft); border-color: transparent; }
+.fresh.old::before { content: "\26A0\FE0E\00a0"; }
+.fresh.closed { color: var(--muted); }
+.badge {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-weight: 600;
+}
+
+/* ---- tiles ----------------------------------------------------------------- */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--rule-strong);
+  border: 1px solid var(--rule-strong);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.tile {
+  background: var(--surface);
+  padding: 12px 14px 13px;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  min-width: 0;
+  /* Each tile is a button: it jumps to its row or sets a filter. */
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+}
+.tile:hover { background: var(--surface-sunk); }
+.tile:focus-visible { outline: 2px solid var(--focus); outline-offset: -3px; }
+.tile[aria-pressed="true"] { background: var(--accent-soft); box-shadow: inset 0 -3px 0 var(--accent); }
+.tile-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.tile-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tile-note {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+.tile-move {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  min-width: 0;
+}
+.move-symbol {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  background: var(--accent-soft);
+  border-radius: 6px;
+  padding: 1px 7px;
+}
+.move-prices {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.move-prices { flex-wrap: wrap; row-gap: 2px; }
+.move-side { white-space: nowrap; }
+.move-pct { font-weight: 400; margin-left: 3px; }
+.move-from { color: var(--muted); }
+.move-arrow { color: var(--muted); font-family: var(--ui); }
+.move-to { font-weight: 600; color: var(--ink); }
+.tile.gain .move-to { color: var(--gain); }
+.tile.pullback .move-to { color: var(--pull); }
+.tile.loss .move-to { color: var(--loss); }
+.tile.gain .move-symbol { background: var(--gain-soft); color: var(--gain); }
+.tile.pullback .move-symbol { background: var(--pull-soft); color: var(--pull); }
+.tile.loss .move-symbol { background: var(--loss-soft); color: var(--loss); }
+.tile.gain .tile-value { color: var(--gain); }
+.tile.loss .tile-value,
+.tile.alert .tile-value { color: var(--loss); }
+.tile.pullback .tile-value { color: var(--pull); }
+
+/* ---- controls -------------------------------------------------------------- */
+.controls {
+  display: grid;
+  gap: 10px;
+}
+.control-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.search {
+  flex: 1 1 220px;
+  max-width: 320px;
+  min-width: 0;
+  position: relative;
+}
+.search input {
+  width: 100%;
+  font: 500 14px var(--mono);
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  padding: 8px 10px 8px 30px;
+}
+.search input::placeholder { text-transform: none; font-family: var(--ui); color: var(--muted); }
+.search svg {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  transform: translateY(-50%);
+  stroke: var(--muted);
+  fill: none;
+}
+.group-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 600 12px var(--ui);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.group-pick[hidden] { display: none; }
+.group-pick select {
+  font: 600 14px var(--ui);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  padding: 7px 8px;
+}
+.filters {
+  display: grid;
+  gap: 6px;
+}
+.filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.filter select,
+.filter input {
+  font: 500 14px var(--mono);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  padding: 6px 8px;
+}
+.filter select.column { font-family: var(--ui); font-weight: 600; }
+.filter input { width: 96px; }
+.button {
+  font: 600 13.5px var(--ui);
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px dashed var(--rule-strong);
+  border-radius: 3px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.button.quiet { border-style: solid; border-color: transparent; color: var(--muted); }
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  font: 600 13px var(--ui);
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.chip .count { font-family: var(--mono); font-weight: 500; color: var(--muted); }
+.chip:hover { border-color: var(--accent); }
+.chip[aria-pressed="true"] {
+  color: var(--surface);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.chip[aria-pressed="true"] .count { color: inherit; }
+.chip[aria-pressed="true"]::before { content: "\2713\00a0"; }
+tbody tr.flash td { background: var(--accent-soft); }
+@media (prefers-reduced-motion: no-preference) {
+  tbody td { transition: background-color 0.6s ease; }
+}
+.remove {
+  font: 600 16px var(--ui);
+  line-height: 1;
+  width: 30px;
+  height: 30px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.remove:hover { color: var(--loss); border-color: var(--rule-strong); }
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.help {
+  font: 700 13px var(--ui);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  cursor: pointer;
+}
+.help[aria-expanded="true"] { color: var(--surface); background: var(--accent); border-color: var(--accent); }
+/* The definitions open under the order line, over the table. */
+.defs {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 10;
+  width: min(620px, calc(100vw - 32px));
+  max-height: 70vh;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.18);
+  text-align: left;
+}
+.defs[hidden] { display: none; }
+.defs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 6px 0 12px;
+}
+.defs h2 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.defs-table { font-size: 13px; }
+.defs-table th,
+.defs-table td {
+  text-align: left;
+  white-space: normal;
+  vertical-align: top;
+}
+.defs-table td:first-child { font-weight: 600; color: var(--ink); white-space: nowrap; }
+.defs-table td:nth-child(2) { color: var(--ink-soft); white-space: nowrap; }
+.defs-table td:nth-child(3) { font-family: var(--ui); color: var(--muted); min-width: 180px; }
+
+.sort {
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.sort:hover { color: var(--ink); }
+.sort .arrow {
+  display: inline-block;
+  width: 8px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.sort .arrow::before { content: "\2195"; opacity: 0.45; }
+th[aria-sort="descending"] .sort,
+th[aria-sort="ascending"] .sort { color: var(--ink); }
+th[aria-sort="descending"] .arrow::before { content: "\25BC"; opacity: 1; }
+.sort .rank {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink);
+  min-width: 0;
+}
+th[aria-sort="ascending"] .arrow::before { content: "\25B2"; opacity: 1; }
+
+.status-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.order-group {
+  /* The tooltip anchors here, at the row's right edge, so it stays on
+     screen however far left the order text sits. */
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.order-group .button { padding: 2px 6px; }
+.order {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink-soft);
+  cursor: help;
+  text-decoration: underline dotted var(--muted);
+  text-underline-offset: 3px;
+}
+.order:hover::after,
+.order:focus::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 6px;
+  width: max-content;
+  max-width: min(320px, 80vw);
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--surface);
+  font-family: var(--ui);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: left;
+  white-space: pre-line;
+  z-index: 5;
+}
+.showing-group { display: inline-flex; align-items: center; gap: 8px; }
+.showing-group .button { padding: 2px 6px; }
+.copied { font-size: 12.5px; color: var(--gain); }
+.status-line b { font-family: var(--mono); font-weight: 600; color: var(--ink); }
+
+/* ---- table ----------------------------------------------------------------- */
+.table-wrap {
+  overflow: auto;
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: 12px;
+}
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13.5px;
+}
+thead th {
+  font: 600 11px var(--ui);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  background: var(--surface-sunk);
+  text-align: right;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--rule-strong);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 7px 12px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--rule);
+  background: var(--surface);
+}
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: var(--surface-sunk); }
+th.sym, td.sym {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  text-align: left;
+  border-right: 1px solid var(--rule);
+}
+thead th { position: sticky; top: 0; z-index: 2; }
+thead th.sym { z-index: 3; }
+td.sym {
+  font-weight: 600;
+  color: var(--ink);
+  box-shadow: inset 3px 0 0 transparent;
+}
+tr.below td.sym { box-shadow: inset 3px 0 0 var(--loss); }
+th.left, td.left { text-align: left; }
+.sym-name { display: block; }
+.groups {
+  display: block;
+  font: 500 11px var(--ui);
+  color: var(--muted);
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.badges { white-space: nowrap; }
+.badge-signal {
+  display: inline-block;
+  font: 600 11px var(--ui);
+  padding: 2px 6px;
+  margin-right: 4px;
+  border-radius: 6px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.badge-signal.up { color: var(--gain); background: var(--gain-soft); }
+.badge-signal.down { color: var(--loss); background: var(--loss-soft); }
+td.prev { color: var(--muted); }
+td.chg, td.pull { font-weight: 700; }
+td.pull.hot { color: var(--pull); }
+td.range { padding-inline: 14px; }
+.track {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  width: 96px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--rule-strong);
+}
+.prev-tick {
+  position: absolute;
+  top: -3px;
+  width: 1px;
+  height: 10px;
+  margin-left: -0.5px;
+  background: var(--muted);
+}
+.seg {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 2px;
+}
+.seg.pos { background: var(--gain); }
+.seg.neg { background: var(--loss); }
+.mark {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.mark.pos { background: var(--gain); }
+.mark.neg { background: var(--loss); }
+.pos { color: var(--gain); }
+.neg { color: var(--loss); }
+.dim { color: var(--muted); }
+.pill {
+  display: inline-block;
+  font: 600 11px var(--ui);
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+.pill.low { color: var(--loss); background: var(--loss-soft); }
+.pill.none { color: var(--muted); background: var(--surface-sunk); }
+/* The support cell: level · away, its month on hover, focus or tap. */
+.tip {
+  position: relative;
+  cursor: help;
+  text-decoration: underline dotted var(--muted);
+  text-underline-offset: 3px;
+}
+.tip:hover::after,
+.tip:focus::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: max-content;
+  max-width: min(260px, 70vw);
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--surface);
+  font: 12px/1.4 var(--ui);
+  text-align: left;
+  white-space: normal;
+  z-index: 5;
+}
+.tip:focus { outline: none; }
+.tip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.tip.old { color: var(--muted); font-style: italic; }
+.tip.old .away { color: inherit; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.empty {
+  padding: 28px 16px;
+  text-align: center;
+  font-family: var(--ui);
+  color: var(--muted);
+}
+.footnote b { color: var(--ink-soft); font-weight: 600; }
+.footnote {
+  font-size: 13px;
+  color: var(--muted);
+  display: grid;
+  gap: 2px;
+}
+
+@media (max-width: 900px) {
+  .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* Phones: the tiles become one strip that scrolls sideways, and each row
+   two lines -- symbol and current, then Change%, Pullback%, the support
+   chip and any badges. */
+@media (max-width: 640px) {
+  .page { gap: 14px; }
+  .tiles {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .tile {
+    flex: 0 0 64%;
+    scroll-snap-align: start;
+    padding: 10px 12px;
+  }
+  .tile-value { font-size: 20px; }
+  .masthead h1 { font-size: 20px; }
+  .search { max-width: none; flex-basis: 100%; }
+  .search input,
+  .group-pick select,
+  .filter select,
+  .filter input,
+  .button,
+  .chip { min-height: 40px; }
+  .group-pick { flex: 1 1 100%; }
+  .group-pick select { flex: 1 1 auto; }
+  .filter select.column { flex: 1 1 150px; min-width: 0; }
+  .filter input { flex: 1 1 70px; width: auto; min-width: 0; }
+  .remove { width: 40px; height: 40px; }
+  .help { width: 40px; height: 40px; }
+
+  .table-wrap { overflow: visible; max-height: none; }
+  .order-group { position: static; }
+  .status-line { position: relative; }
+  table, tbody { display: block; }
+  thead { display: block; position: sticky; top: 0; z-index: 3; }
+  thead tr {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    padding: 6px 12px;
+    background: var(--surface-sunk);
+    border-bottom: 1px solid var(--rule-strong);
+    border-radius: 12px 12px 0 0;
+  }
+  thead th { display: none; padding: 0; border: 0; background: none; }
+  thead th[data-sort] { display: block; }
+  thead th .sort { min-height: 32px; }
+  tbody tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 14px;
+    padding: 8px 12px 9px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface);
+    box-shadow: inset 3px 0 0 transparent;
+  }
+  tbody tr:last-child { border-bottom: 0; border-radius: 0 0 12px 12px; }
+  tbody tr.below { box-shadow: inset 3px 0 0 var(--loss); }
+  tbody tr:hover, tbody tr.flash { background: var(--surface-sunk); }
+  tbody tr.flash { background: var(--accent-soft); }
+  tbody td, tbody tr:hover td, tbody tr.flash td { padding: 0; border: 0; background: transparent; }
+  td.sym {
+    position: static;
+    flex: 1 1 calc(100% - 130px);
+    min-width: 0;
+    border-right: 0;
+    box-shadow: none;
+  }
+  tr.below td.sym { box-shadow: none; }
+  td.sym .sym-name, td.sym .groups { display: inline; }
+  td.sym .groups { margin-left: 6px; }
+  td.cur { flex: 0 0 auto; margin-left: auto; font-weight: 600; }
+  td.prev, td.range, td.hpct { display: none; }
+  td.chg::before, td.pull::before {
+    content: attr(data-label) " ";
+    font: 500 11px var(--ui);
+    color: var(--muted);
+  }
+  td.support { margin-left: auto; }
+  td.badges { flex: 1 1 100%; white-space: normal; }
+  td.badges:empty { display: none; }
+  .tip:hover::after,
+  .tip:focus::after {
+    top: calc(100% + 6px);
+    right: 0;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+
+<div class="page">
+  <header class="masthead">
+    <div class="kicker">Watchlist today</div>
+    <h1 id="title">Screened</h1>
+    <div class="stamp" id="stamp"></div>
+  </header>
+
+  <section class="tiles" id="tiles" aria-label="Summary"></section>
+
+  <section class="controls" aria-label="Filters">
+    <div class="control-row">
+      <label class="search" for="search">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke-width="1.6"></circle><path d="M11 11l3.5 3.5" stroke-width="1.6" stroke-linecap="round"></path></svg>
+        <input id="search" type="search" placeholder="Search symbol" autocomplete="off" spellcheck="false" aria-label="Search symbol">
+      </label>
+      <label class="group-pick" hidden>
+        <span>Group</span>
+        <select id="group"></select>
+      </label>
+    </div>
+    <div class="presets" id="presets" role="group" aria-label="Presets"></div>
+    <div class="filters" id="filters"></div>
+    <div class="control-row">
+      <button class="button" id="add-filter" type="button">+ Add filter</button>
+      <button class="button quiet" id="clear" type="button" hidden>Clear all</button>
+    </div>
+  </section>
+
+  <div class="status-line">
+    <span class="showing-group">
+      <span id="showing"></span>
+      <button class="button quiet" id="copy" type="button" title="Copy the symbols shown, comma-separated, in this order">Copy symbols</button>
+      <span id="copied" class="copied" aria-live="polite"></span>
+    </span>
+    <span class="order-group">
+      <span id="order" class="order" tabindex="0">Pullback% &#9660;</span>
+      <button class="button quiet" id="reset-order" type="button" hidden>Reset order</button>
+      <button class="help" id="defs-open" type="button" aria-expanded="false" aria-controls="defs" aria-label="How the columns are calculated" title="How the columns are calculated">?</button>
+      <div class="defs" id="defs" role="dialog" aria-labelledby="defs-title" hidden>
+        <div class="defs-head">
+          <h2 id="defs-title">How the columns are calculated</h2>
+          <button class="remove" id="defs-close" type="button" aria-label="Close">&times;</button>
+        </div>
+        <table class="defs-table">
+          <thead>
+            <tr><th scope="col">Column</th><th scope="col">Formula</th><th scope="col">What it tells you</th></tr>
+          </thead>
+          <tbody id="defs-rows"></tbody>
+        </table>
+      </div>
+    </span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="sym" scope="col">Symbol</th>
+          <th scope="col">Prev</th>
+          <th scope="col" title="Low to high, the marker at the current price and a tick at the previous close; green up on the day, red down">Day range</th>
+          <th scope="col">Current</th>
+          <th scope="col" data-sort="change"><button class="sort" type="button" data-sort="change">Change%<span class="arrow" aria-hidden="true"></span><span class="rank" aria-hidden="true"></span></button></th>
+          <th scope="col" data-sort="high_pct"><button class="sort" type="button" data-sort="high_pct">High%<span class="arrow" aria-hidden="true"></span><span class="rank" aria-hidden="true"></span></button></th>
+          <th scope="col" data-sort="pullback"><button class="sort" type="button" data-sort="pullback">Pullback%<span class="arrow" aria-hidden="true"></span><span class="rank" aria-hidden="true"></span></button></th>
+          <th scope="col" data-sort="away"><button class="sort" type="button" data-sort="away">Support &middot; Away%<span class="arrow" aria-hidden="true"></span><span class="rank" aria-hidden="true"></span></button></th>
+          <th class="left" id="signals-head" scope="col" hidden>Signals</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty" hidden>No symbols match these filters.</div>
+  </div>
+
+  <div class="footnote">
+    <span><b>Support</b>: the last time the stock traded lower than it has this month.</span>
+    <span><span class="pill low">All-time low</span>: it hasn&rsquo;t traded this low at any point in the last ten years (or since it listed, if that&rsquo;s more recent).</span>
+  </div>
+</div>
+
+<script type="application/json" id="screen-data">{"screened_on":"Friday 20 November 2026","screened_at":"16:29 IST","screened_iso":"2026-11-20T16:29:56+05:30","groups":["Chemical Fertiliser","Consumer Tech","IT/Software","Real Estate","Auto Components","Capital Goods / Industrials","IT / Financial Services","Energy / Waste Mgmt","Healthcare/Pharma","Metals & Steel Products","Consumer / FMCG","Logistics / Transport","Chemicals","Aerospace & Defense","Power & Renewables","Infrastructure / EPC","Telecom","Financials","Services","Consumer Durables","Textiles","Building Materials","TATA","Unassigned"],"signals":true,"rows":[{"symbol":"EBGNG","groups":["IT / Financial Services"],"signals":["Support break"],"prev":515.45,"low":468.0,"high":511.5,"last":470.35,"change":-8.75,"high_pct":-0.77,"pullback":7.98,"rose_first":false,"support":{"kind":"level","price":483.05,"month":8,"year":2026,"stale":false},"below":true,"away":-2.63},{"symbol":"KISSHT","groups":["IT / Financial Services"],"signals":[],"prev":340.0,"low":336.0,"high":361.2,"last":337.8,"change":-0.65,"high_pct":6.24,"pullback":6.88,"rose_first":true,"support":{"kind":"level","price":284.65,"month":9,"year":2026,"stale":false},"below":false,"away":18.67},{"symbol":"TATACHEM","groups":["Chemical Fertiliser","TATA"],"signals":[],"prev":650.05,"low":636.95,"high":678.6,"last":639.3,"change":-1.65,"high_pct":4.39,"pullback":6.05,"rose_first":true,"support":{"kind":"level","price":570.05,"month":10,"year":2026,"stale":false},"below":false,"away":12.15},{"symbol":"DEEDEV","groups":["Real Estate"],"signals":[],"prev":549.1,"low":511.0,"high":546.4,"last":513.7,"change":-6.45,"high_pct":-0.49,"pullback":5.96,"rose_first":false,"support":{"kind":"level","price":502.55,"month":10,"year":2026,"stale":false},"below":false,"away":2.22},{"symbol":"KRN","groups":["Capital Goods / Industrials"],"signals":[],"prev":996.6,"low":965.0,"high":1029.4,"last":970.1,"change":-2.66,"high_pct":3.29,"pullback":5.95,"rose_first":true,"support":{"kind":"level","price":844.05,"month":4,"year":2026,"stale":false},"below":false,"away":14.93},{"symbol":"QPOWER","groups":["Power & Renewables"],"signals":[],"prev":1619.1,"low":1527.5,"high":1632.9,"last":1539.6,"change":-4.91,"high_pct":0.85,"pullback":5.76,"rose_first":true,"support":{"kind":"level","price":1243.3,"month":10,"year":2026,"stale":false},"below":false,"away":23.83},{"symbol":"BONDADA","groups":["Power & Renewables"],"signals":[],"prev":262.55,"low":253.1,"high":270.6,"last":255.85,"change":-2.55,"high_pct":3.07,"pullback":5.62,"rose_first":true,"support":{"kind":"level","price":260.0,"month":10,"year":2026,"stale":false},"below":true,"away":-1.6},{"symbol":"DSSL","groups":["IT/Software"],"signals":[],"prev":1090.7,"low":1023.6,"high":1090.0,"last":1033.75,"change":-5.22,"high_pct":-0.06,"pullback":5.16,"rose_first":false,"support":{"kind":"level","price":804.65,"month":4,"year":2026,"stale":false},"below":false,"away":28.47},{"symbol":"SKYWAYS","groups":["Logistics / Transport"],"signals":[],"prev":123.35,"low":116.16,"high":123.35,"last":117.0,"change":-5.15,"high_pct":0.0,"pullback":5.15,"rose_first":false,"support":{"kind":"level","price":91.81,"month":10,"year":2026,"stale":false},"below":false,"away":27.44},{"symbol":"RBZJEWEL","groups":["Consumer Durables"],"signals":["EMA\u2193"],"prev":164.75,"low":156.55,"high":164.75,"last":156.55,"change":-4.98,"high_pct":0.0,"pullback":4.98,"rose_first":false,"support":{"kind":"level","price":155.0,"month":9,"year":2026,"stale":false},"below":false,"away":1.0},{"symbol":"YATRA","groups":["Consumer Tech"],"signals":[],"prev":89.95,"low":88.0,"high":93.49,"last":89.02,"change":-1.03,"high_pct":3.94,"pullback":4.97,"rose_first":true,"support":{"kind":"level","price":68.01,"month":10,"year":2026,"stale":false},"below":false,"away":30.89},{"symbol":"TANLA","groups":["IT/Software"],"signals":[],"prev":670.0,"low":658.1,"high":692.9,"last":660.6,"change":-1.4,"high_pct":3.42,"pullback":4.82,"rose_first":true,"support":{"kind":"level","price":480.8,"month":10,"year":2026,"stale":false},"below":false,"away":37.4},{"symbol":"PINELABS","groups":["Consumer Tech"],"signals":[],"prev":161.24,"low":159.3,"high":167.5,"last":159.75,"change":-0.92,"high_pct":3.88,"pullback":4.81,"rose_first":true,"support":{"kind":"level","price":149.76,"month":10,"year":2026,"stale":false},"below":false,"away":6.67},{"symbol":"DIVGIITTS","groups":["Auto Components"],"signals":[],"prev":814.35,"low":778.55,"high":823.85,"last":784.75,"change":-3.63,"high_pct":1.17,"pullback":4.8,"rose_first":true,"support":{"kind":"level","price":761.2,"month":6,"year":2026,"stale":false},"below":false,"away":3.09},{"symbol":"KPIGREEN","groups":["Power & Renewables"],"signals":[],"prev":329.9,"low":320.25,"high":341.25,"last":326.4,"change":-1.06,"high_pct":3.44,"pullback":4.5,"rose_first":true,"support":{"kind":"level","price":271.9,"month":9,"year":2026,"stale":false},"below":false,"away":20.04},{"symbol":"TRUEGREEN","groups":["Energy / Waste Mgmt"],"signals":[],"prev":156.0,"low":151.3,"high":162.0,"last":155.5,"change":-0.32,"high_pct":3.85,"pullback":4.17,"rose_first":true,"support":{"kind":"level","price":144.05,"month":10,"year":2026,"stale":false},"below":false,"away":7.95},{"symbol":"IXIGO","groups":["Consumer Tech"],"signals":[],"prev":177.07,"low":169.31,"high":177.47,"last":170.2,"change":-3.88,"high_pct":0.23,"pullback":4.11,"rose_first":true,"support":{"kind":"level","price":136.35,"month":10,"year":2026,"stale":false},"below":false,"away":24.83},{"symbol":"PACEDIGITK","groups":["Telecom"],"signals":[],"prev":171.3,"low":164.2,"high":172.29,"last":165.36,"change":-3.47,"high_pct":0.58,"pullback":4.05,"rose_first":true,"support":{"kind":"level","price":134.36,"month":10,"year":2026,"stale":false},"below":false,"away":23.07},{"symbol":"HINDWAREAP","groups":["Consumer Durables"],"signals":[],"prev":161.13,"low":155.05,"high":162.78,"last":156.34,"change":-2.97,"high_pct":1.02,"pullback":4.0,"rose_first":true,"support":{"kind":"level","price":155.48,"month":10,"year":2026,"stale":false},"below":false,"away":0.55},{"symbol":"URBANCO","groups":["Consumer Tech"],"signals":[],"prev":176.05,"low":167.0,"high":175.92,"last":168.95,"change":-4.03,"high_pct":-0.07,"pullback":3.96,"rose_first":false,"support":{"kind":"level","price":126.51,"month":10,"year":2026,"stale":false},"below":false,"away":33.55},{"symbol":"GLOBECIVIL","groups":["Real Estate"],"signals":[],"prev":38.3,"low":37.12,"high":38.99,"last":37.5,"change":-2.09,"high_pct":1.8,"pullback":3.89,"rose_first":true,"support":{"kind":"level","price":33.6,"month":10,"year":2026,"stale":false},"below":false,"away":11.61},{"symbol":"ARIES","groups":["Chemical Fertiliser"],"signals":[],"prev":527.75,"low":508.65,"high":540.0,"last":520.0,"change":-1.47,"high_pct":2.32,"pullback":3.79,"rose_first":true,"support":{"kind":"level","price":408.0,"month":10,"year":2026,"stale":false},"below":false,"away":27.45},{"symbol":"RPPINFRA","groups":["Real Estate"],"signals":[],"prev":51.16,"low":49.8,"high":52.98,"last":51.08,"change":-0.16,"high_pct":3.56,"pullback":3.71,"rose_first":true,"support":{"kind":"level","price":39.55,"month":4,"year":2023,"stale":false},"below":false,"away":29.15},{"symbol":"AURIONPRO","groups":["IT/Software"],"signals":[],"prev":555.4,"low":548.0,"high":571.75,"last":551.2,"change":-0.76,"high_pct":2.94,"pullback":3.7,"rose_first":true,"support":{"kind":"level","price":514.25,"month":10,"year":2026,"stale":false},"below":false,"away":7.19},{"symbol":"SONATSOFTW","groups":["IT/Software"],"signals":[],"prev":231.32,"low":229.61,"high":238.88,"last":230.57,"change":-0.32,"high_pct":3.27,"pullback":3.59,"rose_first":true,"support":{"kind":"level","price":222.85,"month":10,"year":2026,"stale":false},"below":false,"away":3.46},{"symbol":"TATAINVEST","groups":["TATA"],"signals":[],"prev":588.45,"low":575.7,"high":603.45,"last":582.65,"change":-0.99,"high_pct":2.55,"pullback":3.53,"rose_first":true,"support":{"kind":"level","price":541.05,"month":10,"year":2026,"stale":false},"below":false,"away":7.69},{"symbol":"CEINSYS","groups":["IT/Software"],"signals":[],"prev":664.0,"low":640.0,"high":667.05,"last":644.35,"change":-2.96,"high_pct":0.46,"pullback":3.42,"rose_first":true,"support":{"kind":"level","price":538.2,"month":8,"year":2024,"stale":false},"below":false,"away":19.72},{"symbol":"MOBIKWIK","groups":["Consumer Tech"],"signals":[],"prev":208.74,"low":206.0,"high":218.9,"last":211.82,"change":1.48,"high_pct":4.87,"pullback":3.39,"rose_first":true,"support":{"kind":"level","price":191.0,"month":10,"year":2026,"stale":false},"below":false,"away":10.9},{"symbol":"AGROPHOS","groups":["Chemical Fertiliser"],"signals":[],"prev":21.11,"low":21.11,"high":22.0,"last":21.29,"change":0.85,"high_pct":4.22,"pullback":3.36,"rose_first":true,"support":{"kind":"level","price":20.77,"month":10,"year":2026,"stale":false},"below":false,"away":2.5},{"symbol":"BAJAJST","groups":["Real Estate"],"signals":[],"prev":300.7,"low":297.75,"high":309.0,"last":298.95,"change":-0.58,"high_pct":2.76,"pullback":3.34,"rose_first":true,"support":{"kind":"level","price":265.0,"month":2,"year":2021,"stale":false},"below":false,"away":12.81},{"symbol":"TRF","groups":["TATA"],"signals":[],"prev":205.37,"low":203.02,"high":211.0,"last":204.28,"change":-0.53,"high_pct":2.74,"pullback":3.27,"rose_first":true,"support":{"kind":"level","price":190.0,"month":10,"year":2026,"stale":false},"below":false,"away":7.52},{"symbol":"WOMANCART-ST","groups":["Consumer Tech"],"signals":[],"prev":76.5,"low":73.25,"high":80.3,"last":77.8,"change":1.7,"high_pct":4.97,"pullback":3.27,"rose_first":true,"support":{"kind":"at_low","price":null,"month":null,"year":null,"stale":false},"below":true,"away":null},{"symbol":"KSCL","groups":["Chemical Fertiliser"],"signals":[],"prev":727.45,"low":705.0,"high":733.8,"last":710.2,"change":-2.37,"high_pct":0.87,"pullback":3.24,"rose_first":true,"support":{"kind":"level","price":642.95,"month":10,"year":2026,"stale":false},"below":false,"away":10.46},{"symbol":"KDL-SM","groups":["Telecom"],"signals":[],"prev":24.8,"low":24.4,"high":26.0,"last":25.2,"change":1.61,"high_pct":4.84,"pullback":3.23,"rose_first":true,"support":{"kind":"level","price":21.05,"month":10,"year":2026,"stale":false},"below":false,"away":19.71},{"symbol":"KMCSHIL","groups":["Healthcare/Pharma"],"signals":[],"prev":201.64,"low":199.0,"high":210.25,"last":203.78,"change":1.06,"high_pct":4.27,"pullback":3.21,"rose_first":true,"support":{"kind":"level","price":138.52,"month":10,"year":2026,"stale":false},"below":false,"away":47.11},{"symbol":"LGEINDIA","groups":["Consumer Durables"],"signals":[],"prev":1716.2,"low":1706.0,"high":1795.0,"last":1740.7,"change":1.43,"high_pct":4.59,"pullback":3.16,"rose_first":true,"support":{"kind":"level","price":1588.0,"month":10,"year":2026,"stale":false},"below":false,"away":9.62},{"symbol":"MONOLITH-SM","groups":["Capital Goods / Industrials"],"signals":[],"prev":1539.0,"low":1510.0,"high":1566.9,"last":1518.6,"change":-1.33,"high_pct":1.81,"pullback":3.14,"rose_first":true,"support":{"kind":"at_low","price":null,"month":null,"year":null,"stale":true},"below":true,"away":null},{"symbol":"MINDTECK","groups":["IT/Software"],"signals":[],"prev":130.74,"low":126.35,"high":134.0,"last":129.96,"change":-0.6,"high_pct":2.49,"pullback":3.09,"rose_first":true,"support":{"kind":"level","price":104.4,"month":9,"year":2023,"stale":false},"below":false,"away":24.48},{"symbol":"JNKINDIA","groups":["Capital Goods / Industrials"],"signals":[],"prev":340.95,"low":329.65,"high":341.1,"last":330.6,"change":-3.04,"high_pct":0.04,"pullback":3.08,"rose_first":true,"support":{"kind":"level","price":312.0,"month":5,"year":2026,"stale":false},"below":false,"away":5.96},{"symbol":"SAMBHV","groups":["Metals & Steel Products"],"signals":[],"prev":161.48,"low":156.8,"high":163.01,"last":158.06,"change":-2.12,"high_pct":0.95,"pullback":3.07,"rose_first":true,"support":{"kind":"level","price":150.25,"month":10,"year":2026,"stale":false},"below":false,"away":5.2},{"symbol":"NUCLEUS","groups":["IT/Software"],"signals":[],"prev":617.65,"low":606.9,"high":630.05,"last":611.45,"change":-1.0,"high_pct":2.01,"pullback":3.01,"rose_first":true,"support":{"kind":"level","price":593.5,"month":5,"year":2023,"stale":false},"below":false,"away":3.02},{"symbol":"SENORES","groups":["Healthcare/Pharma"],"signals":[],"prev":1112.9,"low":1084.6,"high":1123.9,"last":1090.8,"change":-1.99,"high_pct":0.99,"pullback":2.97,"rose_first":true,"support":{"kind":"level","price":1053.4,"month":10,"year":2026,"stale":false},"below":false,"away":3.55},{"symbol":"AIMTRON-SM","groups":["Capital Goods / Industrials"],"signals":[],"prev":1842.15,"low":1773.0,"high":1849.8,"last":1796.35,"change":-2.49,"high_pct":0.42,"pullback":2.9,"rose_first":true,"support":{"kind":"level","price":1495.0,"month":9,"year":2026,"stale":false},"below":false,"away":20.16},{"symbol":"BSOFT","groups":["IT/Software"],"signals":[],"prev":298.85,"low":293.8,"high":311.8,"last":303.15,"change":1.44,"high_pct":4.33,"pullback":2.89,"rose_first":true,"support":{"kind":"level","price":267.05,"month":10,"year":2026,"stale":false},"below":false,"away":13.52},{"symbol":"LATENTVIEW","groups":["IT/Software"],"signals":[],"prev":194.97,"low":191.3,"high":198.51,"last":192.98,"change":-1.02,"high_pct":1.82,"pullback":2.84,"rose_first":true,"support":{"kind":"at_low","price":null,"month":null,"year":null,"stale":false},"below":true,"away":null},{"symbol":"AASTHA","groups":["Textiles"],"signals":[],"prev":23.31,"low":23.0,"high":23.76,"last":23.1,"change":-0.9,"high_pct":1.93,"pullback":2.83,"rose_first":true,"support":{"kind":"level","price":21.3,"month":10,"year":2026,"stale":false},"below":false,"away":8.45},{"symbol":"INOXWIND","groups":["Power & Renewables"],"signals":[],"prev":56.97,"low":55.04,"high":57.07,"last":55.46,"change":-2.65,"high_pct":0.18,"pullback":2.83,"rose_first":true,"support":{"kind":"level","price":55.1,"month":10,"year":2026,"stale":false},"below":false,"away":0.65},{"symbol":"ECLERX","groups":["IT/Software"],"signals":[],"prev":1468.8,"low":1437.5,"high":1494.9,"last":1454.1,"change":-1.0,"high_pct":1.78,"pullback":2.78,"rose_first":true,"support":{"kind":"level","price":1328.2,"month":7,"year":2026,"stale":false},"below":false,"away":9.48},{"symbol":"ROBU","groups":["Consumer / FMCG"],"signals":[],"prev":1105.0,"low":1067.1,"high":1110.0,"last":1080.0,"change":-2.26,"high_pct":0.45,"pullback":2.71,"rose_first":true,"support":{"kind":"level","price":900.0,"month":10,"year":2026,"stale":false},"below":false,"away":20.0},{"symbol":"BAIKAKAJI","groups":["Consumer / FMCG"],"signals":[],"prev":260.15,"low":256.0,"high":263.0,"last":256.0,"change":-1.6,"high_pct":1.1,"pullback":2.69,"rose_first":true,"support":{"kind":"level","price":226.0,"month":8,"year":2026,"stale":false},"below":false,"away":13.27},{"symbol":"CAPILLARY","groups":["IT/Software"],"signals":[],"prev":503.1,"low":497.1,"high":528.5,"last":515.05,"change":2.38,"high_pct":5.05,"pullback":2.67,"rose_first":true,"support":{"kind":"level","price":438.15,"month":9,"year":2026,"stale":false},"below":false,"away":17.55},{"symbol":"ROSSTECH","groups":["Aerospace & Defense"],"signals":[],"prev":1557.8,"low":1513.1,"high":1569.2,"last":1528.6,"change":-1.87,"high_pct":0.73,"pullback":2.61,"rose_first":true,"support":{"kind":"level","price":1279.0,"month":10,"year":2026,"stale":false},"below":false,"away":19.52},{"symbol":"CANARYS-SM","groups":["IT/Software"],"signals":[],"prev":21.45,"low":20.5,"high":21.25,"last":20.7,"change":-3.5,"high_pct":-0.93,"pullback":2.56,"rose_first":false,"support":{"kind":"level","price":20.15,"month":8,"year":2026,"stale":false},"below":false,"away":2.73},{"symbol":"SHADOWFAX","groups":["Logistics / Transport"],"signals":[],"prev":313.6,"low":296.75,"high":315.25,"last":307.25,"change":-2.02,"high_pct":0.53,"pullback":2.55,"rose_first":true,"support":{"kind":"level","price":236.0,"month":9,"year":2026,"stale":false},"below":false,"away":30.19},{"symbol":"KCEIL-SM","groups":["Infrastructure / EPC"],"signals":[],"prev":77.3,"low":75.0,"high":78.0,"last":76.05,"change":-1.62,"high_pct":0.91,"pullback":2.52,"rose_first":true,"support":{"kind":"level","price":71.2,"month":10,"year":2026,"stale":false},"below":false,"away":6.81},{"symbol":"ALLETEC-SM","groups":["IT/Software"],"signals":[],"prev":105.05,"low":106.0,"high":112.05,"last":109.4,"change":4.14,"high_pct":6.66,"pullback":2.52,"rose_first":true,"support":{"kind":"level","price":110.5,"month":10,"year":2026,"stale":false},"below":true,"away":-1.0},{"symbol":"KELLTONTEC","groups":["IT/Software"],"signals":[],"prev":11.52,"low":11.28,"high":11.85,"last":11.56,"change":0.35,"high_pct":2.86,"pullback":2.52,"rose_first":true,"support":{"kind":"level","price":10.66,"month":10,"year":2026,"stale":false},"below":false,"away":8.44},{"symbol":"GREENPANEL","groups":["Consumer Durables"],"signals":[],"prev":155.65,"low":149.87,"high":155.82,"last":151.91,"change":-2.4,"high_pct":0.11,"pullback":2.51,"rose_first":true,"support":{"kind":"level","price":83.05,"month":12,"year":2020,"stale":false},"below":false,"away":82.91},{"symbol":"RITCO","groups":["Logistics / Transport"],"signals":[],"prev":265.25,"low":261.7,"high":269.5,"last":262.9,"change":-0.89,"high_pct":1.6,"pullback":2.49,"rose_first":true,"support":{"kind":"level","price":248.3,"month":10,"year":2026,"stale":false},"below":false,"away":5.88},{"symbol":"KPITTECH","groups":["IT/Software"],"signals":[],"prev":522.5,"low":515.9,"high":532.0,"last":519.0,"change":-0.67,"high_pct":1.82,"pullback":2.49,"rose_first":true,"support":{"kind":"level","price":470.1,"month":10,"year":2026,"stale":false},"below":false,"away":10.4},{"symbol":"MASTEK","groups":["IT/Software"],"signals":[],"prev":1446.5,"low":1425.8,"high":1476.0,"last":1440.1,"change":-0.44,"high_pct":2.04,"pullback":2.48,"rose_first":true,"support":{"kind":"level","price":1411.0,"month":10,"year":2026,"stale":false},"below":false,"away":2.06},{"symbol":"VINCOFE","groups":["Consumer / FMCG"],"signals":[],"prev":152.44,"low":149.31,"high":153.85,"last":150.15,"change":-1.5,"high_pct":0.92,"pullback":2.43,"rose_first":true,"support":{"kind":"level","price":141.25,"month":6,"year":2026,"stale":false},"below":false,"away":6.3},{"symbol":"SWIGGY","groups":["Consumer Tech"],"signals":[],"prev":183.3,"low":177.95,"high":182.62,"last":178.2,"change":-2.78,"high_pct":-0.37,"pullback":2.41,"rose_first":false,"support":{"kind":"level","price":174.2,"month":10,"year":2026,"stale":false},"below":false,"away":2.3},{"symbol":"TATAELXSI","groups":["TATA"],"signals":[],"prev":3725.0,"low":3680.1,"high":3939.0,"last":3850.0,"change":3.36,"high_pct":5.74,"pullback":2.39,"rose_first":true,"support":{"kind":"level","price":2996.0,"month":10,"year":2026,"stale":false},"below":false,"away":28.5},{"symbol":"AJMERA","groups":["Real Estate"],"signals":["Vol spike"],"prev":133.48,"low":132.01,"high":152.45,"last":149.29,"change":11.84,"high_pct":14.21,"pullback":2.37,"rose_first":true,"support":{"kind":"level","price":113.63,"month":10,"year":2026,"stale":false},"below":false,"away":31.38},{"symbol":"NELCO","groups":["TATA"],"signals":[],"prev":783.45,"low":771.75,"high":793.75,"last":775.85,"change":-0.97,"high_pct":1.31,"pullback":2.28,"rose_first":true,"support":{"kind":"level","price":640.9,"month":5,"year":2026,"stale":false},"below":false,"away":21.06},{"symbol":"REDINGTON","groups":["IT/Software"],"signals":[],"prev":341.3,"low":328.5,"high":339.05,"last":331.3,"change":-2.93,"high_pct":-0.66,"pullback":2.27,"rose_first":false,"support":{"kind":"level","price":255.7,"month":7,"year":2026,"stale":false},"below":false,"away":29.57},{"symbol":"INA","groups":["Power & Renewables"],"signals":[],"prev":69.25,"low":67.65,"high":69.59,"last":68.02,"change":-1.78,"high_pct":0.49,"pullback":2.27,"rose_first":true,"support":{"kind":"level","price":62.03,"month":10,"year":2026,"stale":false},"below":false,"away":9.66},{"symbol":"ASAL","groups":["TATA"],"signals":[],"prev":448.9,"low":441.0,"high":452.2,"last":442.2,"change":-1.49,"high_pct":0.74,"pullback":2.23,"rose_first":true,"support":{"kind":"level","price":383.3,"month":10,"year":2026,"stale":false},"below":false,"away":15.37},{"symbol":"OSWALPUMPS","groups":["Capital Goods / Industrials"],"signals":[],"prev":223.45,"low":218.0,"high":223.39,"last":218.42,"change":-2.25,"high_pct":-0.03,"pullback":2.22,"rose_first":false,"support":{"kind":"level","price":201.0,"month":10,"year":2026,"stale":false},"below":false,"away":8.67},{"symbol":"ALLCARGO","groups":["Logistics / Transport"],"signals":[],"prev":9.59,"low":9.35,"high":9.61,"last":9.4,"change":-1.98,"high_pct":0.21,"pullback":2.19,"rose_first":true,"support":{"kind":"level","price":9.0,"month":10,"year":2026,"stale":false},"below":false,"away":4.44},{"symbol":"ARTSON","groups":["TATA"],"signals":[],"prev":138.9,"low":132.0,"high":136.95,"last":134.0,"change":-3.53,"high_pct":-1.4,"pullback":2.12,"rose_first":false,"support":{"kind":"level","price":130.8,"month":10,"year":2026,"stale":false},"below":false,"away":2.45},{"symbol":"RBZJEWEL-BE","groups":["Consumer / FMCG"],"signals":["EMA\u2193"],"prev":165.3,"low":157.04,"high":160.55,"last":157.04,"change":-5.0,"high_pct":-2.87,"pullback":2.12,"rose_first":false,"support":{"kind":"level","price":155.0,"month":9,"year":2026,"stale":false},"below":false,"away":1.32},{"symbol":"RVNL","groups":["Infrastructure / EPC"],"signals":[],"prev":195.0,"low":190.61,"high":195.0,"last":191.0,"change":-2.05,"high_pct":0.0,"pullback":2.05,"rose_first":false,"support":{"kind":"level","price":177.86,"month":10,"year":2026,"stale":false},"below":false,"away":7.39},{"symbol":"NEWGEN","groups":["IT/Software"],"signals":[],"prev":414.8,"low":408.0,"high":422.05,"last":413.55,"change":-0.3,"high_pct":1.75,"pullback":2.05,"rose_first":true,"support":{"kind":"level","price":401.05,"month":3,"year":2026,"stale":false},"below":false,"away":3.12},{"symbol":"SHARDACROP","groups":["Chemical Fertiliser"],"signals":[],"prev":671.05,"low":657.55,"high":674.0,"last":660.7,"change":-1.54,"high_pct":0.44,"pullback":1.98,"rose_first":true,"support":{"kind":"level","price":622.5,"month":10,"year":2026,"stale":false},"below":false,"away":6.14},{"symbol":"SPICEJET","groups":["Logistics / Transport"],"signals":[],"prev":10.25,"low":9.74,"high":9.94,"last":9.74,"change":-4.98,"high_pct":-3.02,"pullback":1.95,"rose_first":false,"support":{"kind":"level","price":7.4,"month":10,"year":2026,"stale":false},"below":false,"away":31.62},{"symbol":"GTTDATA","groups":["IT/Software"],"signals":[],"prev":34.57,"low":33.9,"high":34.57,"last":33.9,"change":-1.94,"high_pct":0.0,"pullback":1.94,"rose_first":false,"support":{"kind":"level","price":27.0,"month":10,"year":2026,"stale":false},"below":false,"away":25.56},{"symbol":"CREDITACC","groups":["Financials"],"signals":[],"prev":970.6,"low":963.1,"high":1000.5,"last":981.7,"change":1.14,"high_pct":3.08,"pullback":1.94,"rose_first":true,"support":{"kind":"level","price":920.0,"month":4,"year":2025,"stale":false},"below":false,"away":6.71},{"symbol":"CYIENT","groups":["IT/Software"],"signals":[],"prev":1111.0,"low":1109.5,"high":1177.0,"last":1155.5,"change":4.01,"high_pct":5.94,"pullback":1.94,"rose_first":true,"support":{"kind":"level","price":1068.0,"month":10,"year":2026,"stale":false},"below":false,"away":8.19},{"symbol":"NAZARA","groups":["IT/Software"],"signals":[],"prev":425.55,"low":411.2,"high":422.7,"last":414.55,"change":-2.58,"high_pct":-0.67,"pullback":1.92,"rose_first":false,"support":{"kind":"level","price":374.0,"month":10,"year":2026,"stale":false},"below":false,"away":10.84},{"symbol":"NAUKRI","groups":["Consumer Tech"],"signals":[],"prev":1157.7,"low":1149.5,"high":1199.3,"last":1177.7,"change":1.73,"high_pct":3.59,"pullback":1.87,"rose_first":true,"support":{"kind":"level","price":1138.4,"month":10,"year":2026,"stale":false},"below":false,"away":3.45},{"symbol":"STYLAMIND","groups":["Building Materials"],"signals":[],"prev":3330.9,"low":3233.0,"high":3314.2,"last":3252.4,"change":-2.36,"high_pct":-0.5,"pullback":1.86,"rose_first":false,"support":{"kind":"level","price":2231.7,"month":5,"year":2026,"stale":false},"below":false,"away":45.74},{"symbol":"VOLTAS","groups":["TATA"],"signals":[],"prev":1237.0,"low":1230.0,"high":1257.0,"last":1235.0,"change":-0.16,"high_pct":1.62,"pullback":1.78,"rose_first":true,"support":{"kind":"level","price":930.5,"month":10,"year":2026,"stale":false},"below":false,"away":32.72},{"symbol":"INDRAMEDCO","groups":["Healthcare/Pharma"],"signals":[],"prev":360.35,"low":358.0,"high":369.0,"last":362.6,"change":0.62,"high_pct":2.4,"pullback":1.78,"rose_first":true,"support":{"kind":"level","price":293.65,"month":10,"year":2026,"stale":false},"below":false,"away":23.48},{"symbol":"PAYTM","groups":["Consumer Tech"],"signals":[],"prev":1725.9,"low":1710.9,"high":1770.3,"last":1740.0,"change":0.82,"high_pct":2.57,"pullback":1.76,"rose_first":true,"support":{"kind":"level","price":1558.8,"month":10,"year":2026,"stale":false},"below":false,"away":11.62},{"symbol":"ANUP","groups":["Capital Goods / Industrials"],"signals":[],"prev":1787.6,"low":1759.0,"high":1797.5,"last":1766.7,"change":-1.17,"high_pct":0.55,"pullback":1.72,"rose_first":true,"support":{"kind":"level","price":1250.5,"month":3,"year":2024,"stale":false},"below":false,"away":41.28},{"symbol":"LXCHEM","groups":["Chemical Fertiliser"],"signals":[],"prev":154.02,"low":150.5,"high":153.59,"last":150.97,"change":-1.98,"high_pct":-0.28,"pullback":1.7,"rose_first":false,"support":{"kind":"level","price":147.41,"month":10,"year":2026,"stale":false},"below":false,"away":2.42},{"symbol":"TCS","groups":["TATA"],"signals":[],"prev":2342.7,"low":2317.0,"high":2414.8,"last":2376.2,"change":1.43,"high_pct":3.08,"pullback":1.65,"rose_first":true,"support":{"kind":"level","price":2045.1,"month":10,"year":2026,"stale":false},"below":false,"away":16.19},{"symbol":"ADOR","groups":["Capital Goods / Industrials"],"signals":[],"prev":1426.5,"low":1390.1,"high":1420.1,"last":1396.7,"change":-2.09,"high_pct":-0.45,"pullback":1.64,"rose_first":false,"support":{"kind":"level","price":1248.2,"month":10,"year":2026,"stale":false},"below":false,"away":11.9},{"symbol":"AIRFLOA","groups":["Capital Goods / Industrials"],"signals":[],"prev":472.4,"low":467.0,"high":477.75,"last":470.05,"change":-0.5,"high_pct":1.13,"pullback":1.63,"rose_first":true,"support":{"kind":"level","price":304.0,"month":8,"year":2026,"stale":false},"below":false,"away":54.62},{"symbol":"INTELLECT","groups":["IT/Software"],"signals":[],"prev":539.2,"low":532.0,"high":557.7,"last":549.0,"change":1.82,"high_pct":3.43,"pullback":1.61,"rose_first":true,"support":{"kind":"level","price":443.7,"month":5,"year":2023,"stale":false},"below":false,"away":23.73},{"symbol":"DEEPAKNTR","groups":["Chemical Fertiliser"],"signals":[],"prev":1552.3,"low":1524.9,"high":1555.3,"last":1531.2,"change":-1.36,"high_pct":0.19,"pullback":1.55,"rose_first":true,"support":{"kind":"level","price":1421.2,"month":10,"year":2026,"stale":false},"below":false,"away":7.74},{"symbol":"INTERARCH","groups":["Capital Goods / Industrials"],"signals":[],"prev":1600.4,"low":1587.1,"high":1638.9,"last":1614.4,"change":0.87,"high_pct":2.41,"pullback":1.53,"rose_first":true,"support":{"kind":"level","price":1449.5,"month":10,"year":2026,"stale":false},"below":false,"away":11.38},{"symbol":"MTNL","groups":["Unassigned"],"signals":[],"prev":24.86,"low":24.08,"high":24.63,"last":24.25,"change":-2.45,"high_pct":-0.93,"pullback":1.53,"rose_first":false,"support":{"kind":"level","price":21.69,"month":10,"year":2026,"stale":false},"below":false,"away":11.8},{"symbol":"CARYSIL","groups":["Consumer / FMCG"],"signals":[],"prev":944.55,"low":926.3,"high":944.55,"last":930.2,"change":-1.52,"high_pct":0.0,"pullback":1.52,"rose_first":false,"support":{"kind":"level","price":878.15,"month":5,"year":2026,"stale":false},"below":false,"away":5.93},{"symbol":"BMW","groups":["Metals & Steel Products"],"signals":[],"prev":49.81,"low":48.65,"high":50.68,"last":49.94,"change":0.26,"high_pct":1.75,"pullback":1.49,"rose_first":true,"support":{"kind":"level","price":46.58,"month":10,"year":2026,"stale":false},"below":false,"away":7.21},{"symbol":"NETWEB","groups":["IT/Software"],"signals":[],"prev":4205.4,"low":4080.0,"high":4157.8,"last":4095.5,"change":-2.61,"high_pct":-1.13,"pullback":1.48,"rose_first":false,"support":{"kind":"level","price":3671.1,"month":5,"year":2026,"stale":false},"below":false,"away":11.56},{"symbol":"GODFRYPHLP","groups":["Consumer / FMCG"],"signals":[],"prev":1791.1,"low":1764.3,"high":1811.4,"last":1785.0,"change":-0.34,"high_pct":1.13,"pullback":1.47,"rose_first":true,"support":{"kind":"level","price":1641.2,"month":10,"year":2026,"stale":false},"below":false,"away":8.76},{"symbol":"DCI","groups":["IT / Financial Services"],"signals":["Vol spike"],"prev":365.4,"low":359.2,"high":387.8,"last":382.45,"change":4.67,"high_pct":6.13,"pullback":1.46,"rose_first":true,"support":{"kind":"level","price":293.2,"month":10,"year":2026,"stale":false},"below":false,"away":30.44},{"symbol":"IREDA","groups":["Financials"],"signals":["Vol spike"],"prev":129.8,"low":128.01,"high":133.6,"last":131.7,"change":1.46,"high_pct":2.93,"pullback":1.46,"rose_first":true,"support":{"kind":"level","price":98.78,"month":10,"year":2026,"stale":false},"below":false,"away":33.33},{"symbol":"HARIOMPIPE","groups":["Metals & Steel Products"],"signals":[],"prev":348.55,"low":341.85,"high":350.0,"last":344.95,"change":-1.03,"high_pct":0.42,"pullback":1.45,"rose_first":true,"support":{"kind":"level","price":290.4,"month":10,"year":2026,"stale":false},"below":false,"away":18.78},{"symbol":"KAMATHOTEL","groups":["Services"],"signals":[],"prev":222.9,"low":220.35,"high":225.9,"last":222.7,"change":-0.09,"high_pct":1.35,"pullback":1.44,"rose_first":true,"support":{"kind":"level","price":214.9,"month":10,"year":2026,"stale":false},"below":false,"away":3.63},{"symbol":"DEEPAKFERT","groups":["Chemical Fertiliser"],"signals":[],"prev":1449.9,"low":1427.9,"high":1458.0,"last":1437.2,"change":-0.88,"high_pct":0.56,"pullback":1.43,"rose_first":true,"support":{"kind":"level","price":933.6,"month":4,"year":2026,"stale":false},"below":false,"away":53.94},{"symbol":"POLICYBZR","groups":["Consumer Tech"],"signals":[],"prev":1015.0,"low":998.9,"high":1037.3,"last":1022.8,"change":0.77,"high_pct":2.2,"pullback":1.43,"rose_first":true,"support":{"kind":"level","price":852.0,"month":2,"year":2024,"stale":false},"below":false,"away":20.05},{"symbol":"BELRISE","groups":["Auto Components"],"signals":[],"prev":236.95,"low":233.7,"high":239.7,"last":236.33,"change":-0.26,"high_pct":1.16,"pullback":1.42,"rose_first":true,"support":{"kind":"level","price":194.19,"month":10,"year":2026,"stale":false},"below":false,"away":21.7},{"symbol":"JASH","groups":["Capital Goods / Industrials"],"signals":[],"prev":518.15,"low":510.1,"high":542.6,"last":535.25,"change":3.3,"high_pct":4.72,"pullback":1.42,"rose_first":true,"support":{"kind":"level","price":454.1,"month":9,"year":2026,"stale":false},"below":false,"away":17.87},{"symbol":"SAGILITY","groups":["IT/Software"],"signals":[],"prev":44.86,"low":44.1,"high":45.88,"last":45.25,"change":0.87,"high_pct":2.27,"pullback":1.4,"rose_first":true,"support":{"kind":"level","price":41.75,"month":10,"year":2026,"stale":false},"below":false,"away":8.38},{"symbol":"PURVA","groups":["Real Estate"],"signals":[],"prev":196.5,"low":194.66,"high":201.65,"last":198.91,"change":1.23,"high_pct":2.62,"pullback":1.39,"rose_first":true,"support":{"kind":"level","price":179.02,"month":10,"year":2026,"stale":false},"below":false,"away":11.11},{"symbol":"GROWW","groups":["Consumer Tech"],"signals":[],"prev":220.89,"low":218.22,"high":227.6,"last":224.57,"change":1.67,"high_pct":3.04,"pullback":1.37,"rose_first":true,"support":{"kind":"level","price":177.5,"month":10,"year":2026,"stale":false},"below":false,"away":26.52},{"symbol":"SPARC","groups":["Healthcare/Pharma"],"signals":[],"prev":192.57,"low":188.71,"high":192.8,"last":190.16,"change":-1.25,"high_pct":0.12,"pullback":1.37,"rose_first":true,"support":{"kind":"level","price":167.22,"month":10,"year":2026,"stale":false},"below":false,"away":13.72},{"symbol":"MEESHO","groups":["Consumer Tech"],"signals":[],"prev":258.85,"low":255.0,"high":263.38,"last":259.92,"change":0.41,"high_pct":1.75,"pullback":1.34,"rose_first":true,"support":{"kind":"level","price":208.2,"month":10,"year":2026,"stale":false},"below":false,"away":24.84},{"symbol":"MAMATA","groups":["Capital Goods / Industrials"],"signals":[],"prev":328.45,"low":322.95,"high":328.0,"last":323.65,"change":-1.46,"high_pct":-0.14,"pullback":1.32,"rose_first":false,"support":{"kind":"level","price":307.0,"month":4,"year":2026,"stale":false},"below":false,"away":5.42},{"symbol":"KPEL","groups":["Power & Renewables"],"signals":[],"prev":172.06,"low":169.01,"high":174.4,"last":172.13,"change":0.04,"high_pct":1.36,"pullback":1.32,"rose_first":true,"support":{"kind":"level","price":110.88,"month":8,"year":2023,"stale":false},"below":false,"away":55.24},{"symbol":"CRIZAC","groups":["Services"],"signals":[],"prev":150.53,"low":148.11,"high":152.11,"last":150.15,"change":-0.25,"high_pct":1.05,"pullback":1.3,"rose_first":true,"support":{"kind":"at_low","price":null,"month":null,"year":null,"stale":false},"below":true,"away":null},{"symbol":"TTML","groups":["Telecom","TATA"],"signals":[],"prev":36.81,"low":35.87,"high":36.48,"last":36.02,"change":-2.15,"high_pct":-0.9,"pullback":1.25,"rose_first":false,"support":{"kind":"level","price":31.65,"month":10,"year":2026,"stale":false},"below":false,"away":13.81},{"symbol":"LTELEVATOR","groups":["Capital Goods / Industrials"],"signals":["EMA\u2193"],"prev":304.15,"low":300.0,"high":308.8,"last":305.0,"change":0.28,"high_pct":1.53,"pullback":1.25,"rose_first":true,"support":{"kind":"level","price":270.1,"month":8,"year":2026,"stale":false},"below":false,"away":12.92},{"symbol":"SOLEX","groups":["Power & Renewables"],"signals":[],"prev":616.3,"low":608.55,"high":621.9,"last":614.35,"change":-0.32,"high_pct":0.91,"pullback":1.23,"rose_first":true,"support":{"kind":"level","price":522.0,"month":10,"year":2026,"stale":false},"below":false,"away":17.69},{"symbol":"SCODATUBES","groups":["Metals & Steel Products"],"signals":[],"prev":91.12,"low":88.5,"high":91.13,"last":90.02,"change":-1.21,"high_pct":0.01,"pullback":1.22,"rose_first":true,"support":{"kind":"at_low","price":null,"month":null,"year":null,"stale":false},"below":true,"away":null},{"symbol":"ROUTE","groups":["IT/Software"],"signals":[],"prev":424.4,"low":415.6,"high":422.5,"last":417.4,"change":-1.65,"high_pct":-0.45,"pullback":1.2,"rose_first":false,"support":{"kind":"level","price":407.1,"month":10,"year":2026,"stale":false},"below":false,"away":2.53},{"symbol":"REMSONSIND","groups":["Auto Components"],"signals":[],"prev":86.61,"low":83.0,"high":86.35,"last":85.31,"change":-1.5,"high_pct":-0.3,"pullback":1.2,"rose_first":false,"support":{"kind":"level","price":84.7,"month":10,"year":2026,"stale":false},"below":false,"away":0.72},{"symbol":"RATNAVEER","groups":["Metals & Steel Products"],"signals":[],"prev":367.1,"low":366.3,"high":374.5,"last":370.25,"change":0.86,"high_pct":2.02,"pullback":1.16,"rose_first":true,"support":{"kind":"level","price":307.8,"month":10,"year":2026,"stale":false},"below":false,"away":20.29},{"symbol":"TATATECH","groups":["TATA"],"signals":["Vol spike"],"prev":703.75,"low":691.55,"high":735.75,"last":727.9,"change":3.43,"high_pct":4.55,"pullback":1.12,"rose_first":true,"support":{"kind":"level","price":641.5,"month":10,"year":2026,"stale":false},"below":false,"away":13.47},{"symbol":"RISHABH","groups":["Capital Goods / Industrials"],"signals":[],"prev":582.45,"low":567.0,"high":616.65,"last":610.25,"change":4.77,"high_pct":5.87,"pullback":1.1,"rose_first":true,"support":{"kind":"level","price":486.4,"month":6,"year":2026,"stale":false},"below":false,"away":25.46},{"symbol":"EPACK","groups":["Consumer Durables"],"signals":[],"prev":160.48,"low":156.5,"high":167.4,"last":165.64,"change":3.22,"high_pct":4.31,"pullback":1.1,"rose_first":true,"support":{"kind":"at_low","price":null,"month":null,"year":null,"stale":false},"below":true,"away":null},{"symbol":"BLACKBUCK","groups":["Real Estate"],"signals":[],"prev":521.4,"low":514.1,"high":520.85,"last":515.2,"change":-1.19,"high_pct":-0.11,"pullback":1.08,"rose_first":false,"support":{"kind":"level","price":496.75,"month":6,"year":2026,"stale":false},"below":false,"away":3.71},{"symbol":"SOBHA","groups":["Real Estate"],"signals":[],"prev":1269.4,"low":1255.0,"high":1276.1,"last":1262.4,"change":-0.55,"high_pct":0.53,"pullback":1.08,"rose_first":true,"support":{"kind":"level","price":1112.1,"month":10,"year":2026,"stale":false},"below":false,"away":13.51},{"symbol":"RALLIS","groups":["Chemical Fertiliser","TATA"],"signals":[],"prev":189.26,"low":186.5,"high":189.0,"last":186.96,"change":-1.22,"high_pct":-0.14,"pullback":1.08,"rose_first":false,"support":{"kind":"level","price":182.1,"month":10,"year":2026,"stale":false},"below":false,"away":2.67},{"symbol":"HGINFRA","groups":["Infrastructure / EPC"],"signals":[],"prev":400.1,"low":391.25,"high":400.1,"last":395.8,"change":-1.07,"high_pct":0.0,"pullback":1.07,"rose_first":false,"support":{"kind":"level","price":373.75,"month":10,"year":2026,"stale":false},"below":false,"away":5.9},{"symbol":"TATAPOWER","groups":["TATA"],"signals":[],"prev":340.0,"low":336.2,"high":343.35,"last":339.7,"change":-0.09,"high_pct":0.99,"pullback":1.07,"rose_first":true,"support":{"kind":"level","price":333.2,"month":10,"year":2026,"stale":false},"below":false,"away":1.95},{"symbol":"MAPMYINDIA","groups":["IT/Software"],"signals":[],"prev":842.05,"low":828.0,"high":841.4,"last":832.4,"change":-1.15,"high_pct":-0.08,"pullback":1.07,"rose_first":false,"support":{"kind":"level","price":790.05,"month":10,"year":2026,"stale":false},"below":false,"away":5.36},{"symbol":"OLAELEC","groups":["Consumer Tech"],"signals":[],"prev":32.87,"low":32.46,"high":32.94,"last":32.59,"change":-0.85,"high_pct":0.21,"pullback":1.06,"rose_first":true,"support":{"kind":"level","price":29.18,"month":10,"year":2026,"stale":false},"below":false,"away":11.69},{"symbol":"JYOTICNC","groups":["Capital Goods / Industrials"],"signals":[],"prev":1071.75,"low":1031.0,"high":1063.8,"last":1052.45,"change":-1.8,"high_pct":-0.74,"pullback":1.06,"rose_first":false,"support":{"kind":"level","price":871.8,"month":10,"year":2026,"stale":false},"below":false,"away":20.72},{"symbol":"ADVAIT","groups":["Capital Goods / Industrials"],"signals":[],"prev":1852.4,"low":1800.0,"high":1840.1,"last":1820.5,"change":-1.72,"high_pct":-0.66,"pullback":1.06,"rose_first":false,"support":{"kind":"level","price":1543.0,"month":10,"year":2026,"stale":false},"below":false,"away":17.98},{"symbol":"ZAGGLE","groups":["IT/Software"],"signals":[],"prev":154.46,"low":151.55,"high":154.74,"last":153.12,"change":-0.87,"high_pct":0.18,"pullback":1.05,"rose_first":true,"support":{"kind":"level","price":146.65,"month":10,"year":2026,"stale":false},"below":false,"away":4.41},{"symbol":"PCJEWELLER","groups":["Consumer Durables"],"signals":[],"prev":14.5,"low":13.85,"high":14.2,"last":14.05,"change":-3.1,"high_pct":-2.07,"pullback":1.03,"rose_first":false,"support":{"kind":"level","price":12.56,"month":10,"year":2026,"stale":false},"below":false,"away":11.86},{"symbol":"SHAREINDIA","groups":["Consumer Tech"],"signals":[],"prev":181.69,"low":177.7,"high":181.17,"last":179.32,"change":-1.3,"high_pct":-0.29,"pullback":1.02,"rose_first":false,"support":{"kind":"level","price":134.46,"month":7,"year":2026,"stale":false},"below":false,"away":33.36},{"symbol":"STUDDS","groups":["Auto Components"],"signals":[],"prev":416.05,"low":410.0,"high":415.15,"last":411.2,"change":-1.17,"high_pct":-0.22,"pullback":0.95,"rose_first":false,"support":{"kind":"at_low","price":null,"month":null,"year":null,"stale":false},"below":true,"away":null},{"symbol":"ORIENTHOT","groups":["TATA"],"signals":[],"prev":176.99,"low":176.05,"high":181.66,"last":179.98,"change":1.69,"high_pct":2.64,"pullback":0.95,"rose_first":true,"support":{"kind":"level","price":137.61,"month":10,"year":2026,"stale":false},"below":false,"away":30.79},{"symbol":"NORTHARC","groups":["Financials"],"signals":[],"prev":276.05,"low":268.15,"high":281.5,"last":278.9,"change":1.03,"high_pct":1.97,"pullback":0.94,"rose_first":true,"support":{"kind":"level","price":240.1,"month":10,"year":2026,"stale":false},"below":false,"away":16.16},{"symbol":"TRANSRAILL","groups":["Infrastructure / EPC"],"signals":[],"prev":431.7,"low":426.3,"high":432.0,"last":427.95,"change":-0.87,"high_pct":0.07,"pullback":0.94,"rose_first":true,"support":{"kind":"level","price":420.0,"month":10,"year":2026,"stale":false},"below":false,"away":1.89},{"symbol":"ZTECH-SM","groups":["Energy / Waste Mgmt"],"signals":[],"prev":379.1,"low":377.0,"high":387.0,"last":383.45,"change":1.15,"high_pct":2.08,"pullback":0.94,"rose_first":true,"support":{"kind":"level","price":326.4,"month":11,"year":2024,"stale":false},"below":false,"away":17.48},{"symbol":"RTNPOWER","groups":["Power & Renewables"],"signals":[],"prev":6.49,"low":6.36,"high":6.48,"last":6.42,"change":-1.08,"high_pct":-0.15,"pullback":0.92,"rose_first":false,"support":{"kind":"level","price":5.88,"month":10,"year":2026,"stale":false},"below":false,"away":9.18},{"symbol":"NFL","groups":["Chemical Fertiliser"],"signals":[],"prev":63.82,"low":63.5,"high":65.31,"last":64.72,"change":1.41,"high_pct":2.33,"pullback":0.92,"rose_first":true,"support":{"kind":"level","price":56.01,"month":10,"year":2026,"stale":false},"below":false,"away":15.55},{"symbol":"MBEL","groups":["Capital Goods / Industrials"],"signals":[],"prev":292.35,"low":283.9,"high":293.65,"last":290.95,"change":-0.48,"high_pct":0.44,"pullback":0.92,"rose_first":true,"support":{"kind":"level","price":246.0,"month":10,"year":2026,"stale":false},"below":false,"away":18.27},{"symbol":"MOIL","groups":["Metals & Steel Products"],"signals":[],"prev":213.86,"low":211.15,"high":216.5,"last":214.53,"change":0.31,"high_pct":1.23,"pullback":0.92,"rose_first":true,"support":{"kind":"level","price":182.55,"month":8,"year":2023,"stale":false},"below":false,"away":17.52},{"symbol":"DLF","groups":["Real Estate"],"signals":[],"prev":768.0,"low":761.0,"high":792.0,"last":785.0,"change":2.21,"high_pct":3.12,"pullback":0.91,"rose_first":true,"support":{"kind":"level","price":634.15,"month":10,"year":2026,"stale":false},"below":false,"away":23.79},{"symbol":"YASHHV","groups":["Capital Goods / Industrials"],"signals":[],"prev":1264.9,"low":1261.0,"high":1278.2,"last":1266.7,"change":0.14,"high_pct":1.05,"pullback":0.91,"rose_first":true,"support":{"kind":"level","price":1075.0,"month":10,"year":2026,"stale":false},"below":false,"away":17.83},{"symbol":"MANORAMA","groups":["Chemical Fertiliser"],"signals":[],"prev":1875.7,"low":1852.1,"high":1889.7,"last":1872.7,"change":-0.16,"high_pct":0.75,"pullback":0.91,"rose_first":true,"support":{"kind":"level","price":1660.8,"month":10,"year":2026,"stale":false},"below":false,"away":12.76},{"symbol":"TDPOWERSYS","groups":["Capital Goods / Industrials"],"signals":[],"prev":637.85,"low":613.0,"high":624.75,"last":619.0,"change":-2.96,"high_pct":-2.05,"pullback":0.9,"rose_first":false,"support":{"kind":"level","price":553.05,"month":8,"year":2026,"stale":false},"below":false,"away":11.92},{"symbol":"DHANUKA","groups":["Chemical Fertiliser"],"signals":[],"prev":918.0,"low":900.1,"high":918.15,"last":909.9,"change":-0.88,"high_pct":0.02,"pullback":0.9,"rose_first":true,"support":{"kind":"level","price":820.0,"month":10,"year":2026,"stale":false},"below":false,"away":10.96},{"symbol":"SETL","groups":["Capital Goods / Industrials"],"signals":[],"prev":362.15,"low":347.25,"high":360.75,"last":357.5,"change":-1.28,"high_pct":-0.39,"pullback":0.9,"rose_first":false,"support":{"kind":"level","price":314.1,"month":10,"year":2026,"stale":false},"below":false,"away":13.82},{"symbol":"JSWENERGY","groups":["Power & Renewables"],"signals":[],"prev":515.0,"low":502.1,"high":518.0,"last":513.4,"change":-0.31,"high_pct":0.58,"pullback":0.89,"rose_first":true,"support":{"kind":"level","price":438.4,"month":10,"year":2026,"stale":false},"below":false,"away":17.11},{"symbol":"NH","groups":["Healthcare/Pharma"],"signals":["Vol spike"],"prev":1873.1,"low":1868.0,"high":1960.0,"last":1943.7,"change":3.77,"high_pct":4.64,"pullback":0.87,"rose_first":true,"support":{"kind":"level","price":1622.8,"month":10,"year":2026,"stale":false},"below":false,"away":19.77},{"symbol":"ANANTRAJ","groups":["Real Estate"],"signals":[],"prev":458.55,"low":448.45,"high":455.0,"last":451.05,"change":-1.64,"high_pct":-0.77,"pullback":0.86,"rose_first":false,"support":{"kind":"level","price":420.35,"month":4,"year":2026,"stale":false},"below":false,"away":7.3},{"symbol":"HAVELLS","groups":["Consumer Durables"],"signals":[],"prev":1200.8,"low":1189.0,"high":1221.3,"last":1211.0,"change":0.85,"high_pct":1.71,"pullback":0.86,"rose_first":true,"support":{"kind":"level","price":999.2,"month":10,"year":2026,"stale":false},"below":false,"away":21.2},{"symbol":"RADHIKAJWE","groups":["Consumer Durables"],"signals":[],"prev":58.08,"low":57.0,"high":58.49,"last":58.0,"change":-0.14,"high_pct":0.71,"pullback":0.84,"rose_first":true,"support":{"kind":"level","price":54.12,"month":7,"year":2026,"stale":false},"below":false,"away":7.17},{"symbol":"EPACKPEB","groups":["Real Estate"],"signals":[],"prev":209.57,"low":199.67,"high":208.48,"last":206.73,"change":-1.36,"high_pct":-0.52,"pullback":0.84,"rose_first":false,"support":{"kind":"level","price":179.3,"month":6,"year":2026,"stale":false},"below":false,"away":15.3},{"symbol":"SUZLON","groups":["Power & Renewables"],"signals":[],"prev":36.95,"low":36.31,"high":37.26,"last":36.96,"change":0.03,"high_pct":0.84,"pullback":0.81,"rose_first":true,"support":{"kind":"level","price":33.15,"month":10,"year":2026,"stale":false},"below":false,"away":11.49},{"symbol":"HAPPSTMNDS","groups":["IT/Software"],"signals":[],"prev":298.95,"low":294.6,"high":298.95,"last":296.6,"change":-0.79,"high_pct":0.0,"pullback":0.79,"rose_first":false,"support":{"kind":"level","price":295.1,"month":10,"year":2026,"stale":false},"below":false,"away":0.51},{"symbol":"ANGELONE","groups":["Consumer Tech"],"signals":[],"prev":336.45,"low":331.35,"high":350.9,"last":348.3,"change":3.52,"high_pct":4.29,"pullback":0.77,"rose_first":true,"support":{"kind":"level","price":267.8,"month":10,"year":2026,"stale":false},"below":false,"away":30.06},{"symbol":"IRMENERGY","groups":["Power & Renewables"],"signals":[],"prev":247.24,"low":240.1,"high":249.8,"last":247.92,"change":0.28,"high_pct":1.04,"pullback":0.76,"rose_first":true,"support":{"kind":"level","price":178.55,"month":4,"year":2026,"stale":false},"below":false,"away":38.85},{"symbol":"SUYOG","groups":["Telecom"],"signals":[],"prev":484.4,"low":475.1,"high":500.0,"last":496.35,"change":2.47,"high_pct":3.22,"pullback":0.75,"rose_first":true,"support":{"kind":"level","price":404.75,"month":10,"year":2026,"stale":false},"below":false,"away":22.63},{"symbol":"TATACOMM","groups":["TATA"],"signals":[],"prev":1751.7,"low":1735.0,"high":1763.9,"last":1751.0,"change":-0.04,"high_pct":0.7,"pullback":0.74,"rose_first":true,"support":{"kind":"level","price":1605.1,"month":10,"year":2026,"stale":false},"below":false,"away":9.09},{"symbol":"COHANCE","groups":["Healthcare/Pharma"],"signals":[],"prev":459.45,"low":453.2,"high":465.65,"last":462.3,"change":0.62,"high_pct":1.35,"pullback":0.73,"rose_first":true,"support":{"kind":"level","price":411.0,"month":7,"year":2026,"stale":false},"below":false,"away":12.48},{"symbol":"JIOFIN","groups":["Consumer Tech"],"signals":[],"prev":226.8,"low":223.81,"high":226.59,"last":224.97,"change":-0.81,"high_pct":-0.09,"pullback":0.71,"rose_first":false,"support":{"kind":"level","price":202.51,"month":10,"year":2026,"stale":false},"below":false,"away":11.09},{"symbol":"TEAMLEASE","groups":["Services"],"signals":[],"prev":993.0,"low":982.1,"high":1026.0,"last":1019.4,"change":2.66,"high_pct":3.32,"pullback":0.66,"rose_first":true,"support":{"kind":"level","price":853.05,"month":3,"year":2017,"stale":false},"below":false,"away":19.5},{"symbol":"GODREJAGRO","groups":["Chemical Fertiliser"],"signals":[],"prev":580.1,"low":576.5,"high":587.0,"last":583.15,"change":0.53,"high_pct":1.19,"pullback":0.66,"rose_first":true,"support":{"kind":"level","price":550.35,"month":10,"year":2026,"stale":false},"below":false,"away":5.96},{"symbol":"TRENT","groups":["TATA"],"signals":[],"prev":3225.0,"low":3183.4,"high":3277.3,"last":3256.1,"change":0.96,"high_pct":1.62,"pullback":0.66,"rose_first":true,"support":{"kind":"level","price":2545.8,"month":10,"year":2026,"stale":false},"below":false,"away":27.9},{"symbol":"PROSTARM","groups":["Power & Renewables"],"signals":[],"prev":127.28,"low":125.02,"high":126.5,"last":125.67,"change":-1.26,"high_pct":-0.61,"pullback":0.65,"rose_first":false,"support":{"kind":"level","price":114.43,"month":10,"year":2026,"stale":false},"below":false,"away":9.82},{"symbol":"GODREJPROP","groups":["Real Estate"],"signals":[],"prev":1881.0,"low":1848.6,"high":1942.0,"last":1930.2,"change":2.62,"high_pct":3.24,"pullback":0.63,"rose_first":true,"support":{"kind":"level","price":1468.4,"month":10,"year":2026,"stale":false},"below":false,"away":31.45},{"symbol":"TMPV","groups":["TATA"],"signals":[],"prev":263.5,"low":261.25,"high":267.95,"last":266.35,"change":1.08,"high_pct":1.69,"pullback":0.61,"rose_first":true,"support":{"kind":"level","price":184.5,"month":1,"year":2021,"stale":false},"below":false,"away":44.36},{"symbol":"MITSU","groups":["Chemicals"],"signals":[],"prev":192.0,"low":187.5,"high":211.15,"last":210.0,"change":9.38,"high_pct":9.97,"pullback":0.6,"rose_first":true,"support":{"kind":"level","price":173.1,"month":10,"year":2026,"stale":false},"below":false,"away":21.32},{"symbol":"TATASTEEL","groups":["TATA"],"signals":[],"prev":180.89,"low":173.88,"high":179.07,"last":178.0,"change":-1.6,"high_pct":-1.01,"pullback":0.59,"rose_first":false,"support":{"kind":"level","price":163.41,"month":10,"year":2026,"stale":false},"below":false,"away":8.93},{"symbol":"TECHNOE","groups":["Infrastructure / EPC"],"signals":[],"prev":932.95,"low":921.0,"high":927.9,"last":922.4,"change":-1.13,"high_pct":-0.54,"pullback":0.59,"rose_first":false,"support":{"kind":"level","price":802.0,"month":10,"year":2026,"stale":false},"below":false,"away":15.01},{"symbol":"ORIENTTECH","groups":["IT/Software"],"signals":[],"prev":197.28,"low":196.2,"high":204.0,"last":202.84,"change":2.82,"high_pct":3.41,"pullback":0.59,"rose_first":true,"support":{"kind":"level","price":177.9,"month":10,"year":2026,"stale":false},"below":false,"away":14.02},{"symbol":"JUBLFOOD","groups":["Consumer Tech"],"signals":[],"prev":421.3,"low":418.75,"high":427.15,"last":424.7,"change":0.81,"high_pct":1.39,"pullback":0.58,"rose_first":true,"support":{"kind":"level","price":397.8,"month":10,"year":2026,"stale":false},"below":false,"away":6.76},{"symbol":"ASARFI","groups":["Healthcare/Pharma"],"signals":[],"prev":173.2,"low":168.1,"high":173.5,"last":172.5,"change":-0.4,"high_pct":0.17,"pullback":0.58,"rose_first":true,"support":{"kind":"level","price":154.95,"month":10,"year":2026,"stale":false},"below":false,"away":11.33},{"symbol":"SUPRAJIT","groups":["Auto Components"],"signals":[],"prev":450.6,"low":444.4,"high":453.0,"last":450.5,"change":-0.02,"high_pct":0.53,"pullback":0.55,"rose_first":true,"support":{"kind":"level","price":410.35,"month":5,"year":2026,"stale":false},"below":false,"away":9.78},{"symbol":"THOMASCOOK","groups":["Consumer Tech"],"signals":[],"prev":113.41,"low":111.7,"high":115.28,"last":114.66,"change":1.1,"high_pct":1.65,"pullback":0.55,"rose_first":true,"support":{"kind":"level","price":85.25,"month":10,"year":2026,"stale":false},"below":false,"away":34.5},{"symbol":"PARADEEP","groups":["Chemical Fertiliser"],"signals":[],"prev":137.79,"low":136.38,"high":142.82,"last":142.08,"change":3.11,"high_pct":3.65,"pullback":0.54,"rose_first":true,"support":{"kind":"level","price":119.81,"month":10,"year":2026,"stale":false},"below":false,"away":18.59},{"symbol":"RAYMOND","groups":["Capital Goods / Industrials"],"signals":[],"prev":1195.3,"low":1138.0,"high":1205.0,"last":1198.7,"change":0.28,"high_pct":0.81,"pullback":0.53,"rose_first":true,"support":{"kind":"level","price":1015.0,"month":10,"year":2026,"stale":false},"below":false,"away":18.1},{"symbol":"KAYNES","groups":["Capital Goods / Industrials"],"signals":[],"prev":2890.0,"low":2856.0,"high":2925.0,"last":2910.0,"change":0.69,"high_pct":1.21,"pullback":0.52,"rose_first":true,"support":{"kind":"level","price":2424.0,"month":5,"year":2024,"stale":false},"below":false,"away":20.05},{"symbol":"DANISH-SM","groups":["Capital Goods / Industrials"],"signals":[],"prev":959.75,"low":936.0,"high":988.0,"last":983.25,"change":2.45,"high_pct":2.94,"pullback":0.49,"rose_first":true,"support":{"kind":"at_low","price":null,"month":null,"year":null,"stale":true},"below":true,"away":null},{"symbol":"FINOPB","groups":["Financials"],"signals":[],"prev":120.43,"low":118.32,"high":120.0,"last":119.42,"change":-0.84,"high_pct":-0.36,"pullback":0.48,"rose_first":false,"support":{"kind":"level","price":113.39,"month":5,"year":2026,"stale":false},"below":false,"away":5.32},{"symbol":"BRIGADE","groups":["Real Estate"],"signals":[],"prev":566.2,"low":557.4,"high":581.0,"last":578.35,"change":2.15,"high_pct":2.61,"pullback":0.47,"rose_first":true,"support":{"kind":"level","price":515.05,"month":10,"year":2026,"stale":false},"below":false,"away":12.29},{"symbol":"SJVN","groups":["Power & Renewables"],"signals":[],"prev":56.2,"low":55.2,"high":56.04,"last":55.78,"change":-0.75,"high_pct":-0.28,"pullback":0.46,"rose_first":false,"support":{"kind":"level","price":46.08,"month":10,"year":2026,"stale":false},"below":false,"away":21.05},{"symbol":"TMCV","groups":["TATA"],"signals":[],"prev":445.85,"low":440.25,"high":458.75,"last":456.75,"change":2.44,"high_pct":2.89,"pullback":0.45,"rose_first":true,"support":{"kind":"level","price":379.25,"month":10,"year":2026,"stale":false},"below":false,"away":20.44},{"symbol":"PRESTIGE","groups":["Real Estate"],"signals":["Vol spike"],"prev":1655.0,"low":1633.0,"high":1687.4,"last":1680.0,"change":1.51,"high_pct":1.96,"pullback":0.45,"rose_first":true,"support":{"kind":"level","price":1363.6,"month":10,"year":2026,"stale":false},"below":false,"away":23.2},{"symbol":"LODHA","groups":["Real Estate"],"signals":[],"prev":1202.7,"low":1174.5,"high":1223.8,"last":1218.7,"change":1.33,"high_pct":1.75,"pullback":0.42,"rose_first":true,"support":{"kind":"level","price":937.1,"month":10,"year":2026,"stale":false},"below":false,"away":30.05},{"symbol":"CHAMBLFERT","groups":["Chemical Fertiliser"],"signals":[],"prev":372.5,"low":369.3,"high":373.0,"last":371.55,"change":-0.26,"high_pct":0.13,"pullback":0.39,"rose_first":true,"support":{"kind":"level","price":350.0,"month":10,"year":2026,"stale":false},"below":false,"away":6.16},{"symbol":"VSTIND","groups":["Consumer / FMCG"],"signals":[],"prev":194.1,"low":192.31,"high":194.67,"last":193.93,"change":-0.09,"high_pct":0.29,"pullback":0.38,"rose_first":true,"support":{"kind":"at_low","price":null,"month":null,"year":null,"stale":false},"below":true,"away":null},{"symbol":"ZUARI","groups":["Chemical Fertiliser"],"signals":[],"prev":184.46,"low":182.0,"high":184.46,"last":183.9,"change":-0.3,"high_pct":0.0,"pullback":0.3,"rose_first":false,"support":{"kind":"level","price":169.2,"month":3,"year":2025,"stale":false},"below":false,"away":8.69},{"symbol":"TATACONSUM","groups":["TATA"],"signals":[],"prev":1144.0,"low":1132.4,"high":1158.8,"last":1155.9,"change":1.04,"high_pct":1.29,"pullback":0.25,"rose_first":true,"support":{"kind":"level","price":916.0,"month":10,"year":2026,"stale":false},"below":false,"away":26.19},{"symbol":"PARKHOSPS","groups":["Healthcare/Pharma"],"signals":[],"prev":237.08,"low":235.18,"high":238.63,"last":238.05,"change":0.41,"high_pct":0.65,"pullback":0.24,"rose_first":true,"support":{"kind":"level","price":211.25,"month":10,"year":2026,"stale":false},"below":false,"away":12.69},{"symbol":"ORGANICREC","groups":["Energy / Waste Mgmt"],"signals":[],"prev":205.55,"low":205.1,"high":209.05,"last":208.6,"change":1.48,"high_pct":1.7,"pullback":0.22,"rose_first":true,"support":{"kind":"level","price":188.5,"month":10,"year":2026,"stale":false},"below":false,"away":10.66},{"symbol":"PRIVISCL","groups":["Chemical Fertiliser"],"signals":[],"prev":3535.0,"low":3501.0,"high":3571.0,"last":3565.5,"change":0.86,"high_pct":1.02,"pullback":0.16,"rose_first":true,"support":{"kind":"level","price":3154.0,"month":10,"year":2026,"stale":false},"below":false,"away":13.05},{"symbol":"INDHOTEL","groups":["TATA"],"signals":[],"prev":889.65,"low":882.9,"high":913.0,"last":912.0,"change":2.51,"high_pct":2.62,"pullback":0.11,"rose_first":true,"support":{"kind":"level","price":708.1,"month":10,"year":2026,"stale":false},"below":false,"away":28.8},{"symbol":"TITAN","groups":["TATA"],"signals":[],"prev":4700.0,"low":4524.0,"high":4620.0,"last":4620.0,"change":-1.7,"high_pct":-1.7,"pullback":0.0,"rose_first":false,"support":{"kind":"level","price":4209.0,"month":10,"year":2026,"stale":false},"below":false,"away":9.76},{"symbol":"UCAL-BE","groups":["Auto Components"],"signals":[],"prev":138.3,"low":141.06,"high":141.06,"last":141.06,"change":2.0,"high_pct":2.0,"pullback":0.0,"rose_first":true,"support":{"kind":"level","price":119.01,"month":10,"year":2026,"stale":false},"below":false,"away":18.53},{"symbol":"WAAREEENER","groups":["Power & Renewables"],"signals":[],"prev":2433.0,"low":2404.0,"high":2461.0,"last":2461.0,"change":1.15,"high_pct":1.15,"pullback":0.0,"rose_first":true,"support":{"kind":"level","price":2161.5,"month":10,"year":2026,"stale":false},"below":false,"away":13.86}]}</script>
+<script>
+(function () {
+  "use strict";
+  var data = JSON.parse(document.getElementById("screen-data").textContent);
+  var rows = data.rows;
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  // Columns a filter row can be set on: a number to compare, or a yes/no
+  // test on the row.
+  var COLUMNS = [
+    { key: "change", label: "Change%" },
+    { key: "high_pct", label: "High%" },
+    { key: "pullback", label: "Pullback%" },
+    { key: "away", label: "Away%" },
+    { key: "below", label: "At/below support", flag: function (r) { return r.below; } },
+    { key: "near", label: "Near support", title: "Within 5% above its support level, or under it: Away% \u2264 5",
+      filters: [{ column: "away", op: "lte", value: "5" }] },
+    { key: "at_low", label: "At all-time low", flag: function (r) { return r.support.kind === "at_low"; } }
+  ];
+  // Signals are only on the page when the run computed them.
+  if (data.signals) {
+    COLUMNS.push({ key: "signal", label: "Has a signal", flag: function (r) { return r.signals.length > 0; } });
+  }
+  var OPERATORS = [
+    { key: "gt", label: ">", test: function (a, b) { return a > b; } },
+    { key: "gte", label: "≥", test: function (a, b) { return a >= b; } },
+    { key: "lt", label: "<", test: function (a, b) { return a < b; } },
+    { key: "lte", label: "≤", test: function (a, b) { return a <= b; } }
+  ];
+  var FLAG_OPERATORS = [
+    { key: "is", label: "yes", test: function (yes) { return yes; } },
+    { key: "not", label: "no", test: function (yes) { return !yes; } }
+  ];
+  function column(key) { return COLUMNS.filter(function (c) { return c.key === key; })[0]; }
+  function operator(c, key) {
+    return (c.flag ? FLAG_OPERATORS : OPERATORS).filter(function (o) { return o.key === key; })[0];
+  }
+
+  var state = { search: "", group: "", filters: [] };
+  // The command's own order: most faded first, symbol breaking a tie.
+  // Sorts in priority order; empty means the command's own order.
+  var DEFAULT_SORTS = [{ key: "pullback", dir: "desc" }];
+  var sorts = [];
+  function activeSorts() { return sorts.length ? sorts : DEFAULT_SORTS; }
+  var SORT_LABELS = { change: "Change%", high_pct: "High%", pullback: "Pullback%", away: "Away%" };
+  var DEFINITIONS = [
+    { key: "change", name: "Change%", formula: "(current − prev close) / prev close", means: "where it stands now against yesterday's close" },
+    { key: "high_pct", name: "High%", formula: "(high − prev close) / prev close", means: "how far above yesterday's close it reached at today's high" },
+    { key: "pullback", name: "Pullback%", formula: "High% − Change%", means: "how much of today's rise it has given back; amber at 3 or more when it rose first" },
+    { key: "away", name: "Away%", formula: "(current \u2212 support) / support", means: "how far the price sits above (+) or below (\u2212) its stored support level" }
+  ];
+  function definition(key) {
+    return DEFINITIONS.filter(function (d) { return d.key === key; })[0];
+  }
+  // The definitions, the columns the table is sorted by first.
+  function renderDefinitions() {
+    var first = activeSorts().map(function (x) { return x.key; });
+    var ordered = first.map(definition).concat(DEFINITIONS.filter(function (d) {
+      return first.indexOf(d.key) === -1;
+    }));
+    var body = document.getElementById("defs-rows");
+    body.replaceChildren();
+    ordered.forEach(function (d) {
+      var tr = el("tr");
+      tr.appendChild(el("td", "", d.name));
+      tr.appendChild(el("td", "", d.formula));
+      tr.appendChild(el("td", "", d.means));
+      body.appendChild(tr);
+    });
+  }
+  var nextId = 1;
+
+  function fmt(n) { return n === null || n === undefined ? "–" : n.toFixed(2); }
+  function signed(n) {
+    if (n === null || n === undefined) return "–";
+    return (n > 0 ? "+" : "") + n.toFixed(2);
+  }
+  function tone(n) { return n > 0 ? "pos" : n < 0 ? "neg" : ""; }
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+  function value(row, key) { return row[key]; }
+  function extreme(list, key, pick) {
+    var best = null;
+    list.forEach(function (row) {
+      var v = row[key];
+      if (v === null || v === undefined) return;
+      if (best === null || pick(v, best[key])) best = row;
+    });
+    return best;
+  }
+
+  // ---- filtering --------------------------------------------------------------
+  // A filter row with no number yet is not applied; a yes/no row always is.
+  function applies(f) {
+    var c = column(f.column);
+    return c.flag || (f.value !== "" && !isNaN(Number(f.value)));
+  }
+  function passes(row, f) {
+    var c = column(f.column);
+    var op = operator(c, f.op);
+    if (c.flag) return op.test(Boolean(c.flag(row)));
+    var v = value(row, f.column);
+    if (v === null || v === undefined) return false;
+    return op.test(v, Number(f.value));
+  }
+  function matches(row) {
+    if (state.search && row.symbol.indexOf(state.search) === -1) return false;
+    if (state.group && row.groups.indexOf(state.group) === -1) return false;
+    for (var i = 0; i < state.filters.length; i++) {
+      var f = state.filters[i];
+      if (applies(f) && !passes(row, f)) return false;
+    }
+    return true;
+  }
+
+  // ---- presets ----------------------------------------------------------------
+  // Each preset is a set of ordinary filter rows, added to edit or remove like
+  // any other. A preset is on while all of its rows are present.
+  var PRESETS = [
+    { key: "pullbacks", label: "Pullbacks", title: "Rose first, then gave back 3 or more: High% > 0 and Pullback% ≥ 3",
+      filters: [
+        { column: "high_pct", op: "gt", value: "0" },
+        { column: "pullback", op: "gte", value: "3" }
+      ] },
+    { key: "near", label: "Near support", title: "Within 5% above its support level, or under it: Away% \u2264 5",
+      filters: [{ column: "away", op: "lte", value: "5" }] },
+    { key: "at_low", label: "At all-time low", title: "Trading below every month in up to ten years of history",
+      filters: [{ column: "at_low", op: "is", value: "" }] }
+  ];
+  if (data.signals) {
+    PRESETS.push({ key: "signals", label: "Signals today", title: "An entry or exit signal fired on today's candles",
+      filters: [{ column: "signal", op: "is", value: "" }] });
+  }
+  var AT_OR_BELOW = { column: "below", op: "is", value: "" };
+  function same(f, p) { return f.column === p.column && f.op === p.op && f.value === p.value; }
+  function present(p) { return state.filters.some(function (f) { return same(f, p); }); }
+  function presetOn(preset) { return preset.filters.every(present); }
+  function addFilters(list) {
+    list.forEach(function (p) {
+      if (!present(p)) state.filters.push({ id: nextId++, column: p.column, op: p.op, value: p.value });
+    });
+  }
+  function removeFilters(list) {
+    state.filters = state.filters.filter(function (f) {
+      return !list.some(function (p) { return same(f, p); });
+    });
+  }
+  function toggle(list, on) {
+    if (on) removeFilters(list);
+    else addFilters(list);
+    renderFilters();
+    render();
+  }
+  // Counts are over the whole watchlist, whatever else is filtered.
+  function count(list) {
+    return rows.filter(function (r) { return list.every(function (p) { return passes(r, p); }); }).length;
+  }
+  var presetsBox = document.getElementById("presets");
+  PRESETS.forEach(function (preset) {
+    var chip = el("button", "chip");
+    chip.type = "button";
+    chip.id = "preset-" + preset.key;
+    chip.title = preset.title;
+    chip.setAttribute("aria-pressed", "false");
+    chip.appendChild(document.createTextNode(preset.label + " · "));
+    chip.appendChild(el("span", "count", String(count(preset.filters))));
+    chip.addEventListener("click", function () { toggle(preset.filters, presetOn(preset)); });
+    preset.chip = chip;
+    presetsBox.appendChild(chip);
+  });
+  function renderPresets() {
+    PRESETS.forEach(function (preset) {
+      preset.chip.setAttribute("aria-pressed", presetOn(preset) ? "true" : "false");
+    });
+    belowTile.setAttribute("aria-pressed", present(AT_OR_BELOW) ? "true" : "false");
+  }
+
+  // ---- header and tiles -------------------------------------------------------
+  document.getElementById("title").textContent = "Screened " + data.screened_on;
+  var stamp = document.getElementById("stamp");
+  stamp.appendChild(el("span", "badge", rows.length + " symbols"));
+  stamp.appendChild(el("span", "", "at " + data.screened_at + ", on the last trading prices"));
+
+  // How fresh the page is, worked out when it is viewed, in IST: a screen
+  // from an earlier day is flagged by its age, and outside 09:15-15:30 on a
+  // weekday (or at the weekend) the market is marked closed. Holidays are
+  // not known here.
+  var IST_OFFSET = 330 * 60000;
+  function ist(ms) { return new Date(ms + IST_OFFSET); }
+  function dayNumber(d) { return Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 86400000); }
+  var screened = Date.parse(data.screened_iso);
+  if (!isNaN(screened)) {
+    var nowIst = ist(Date.now()), thenIst = ist(screened);
+    var days = dayNumber(nowIst) - dayNumber(thenIst);
+    if (days > 0) {
+      stamp.appendChild(el("span", "fresh old", days === 1 ? "1 day old" : days + " days old"));
+    } else {
+      stamp.appendChild(el("span", "fresh", "Updated " + data.screened_at.replace(" IST", "")));
+    }
+    var minutes = nowIst.getUTCHours() * 60 + nowIst.getUTCMinutes();
+    var weekday = nowIst.getUTCDay();
+    if (weekday === 0 || weekday === 6 || minutes < 9 * 60 + 15 || minutes >= 15 * 60 + 30) {
+      stamp.appendChild(el("span", "fresh closed", "Market closed"));
+    }
+  }
+
+  function tile(cls, label, main, note, hint, action) {
+    var t = el("button", "tile " + cls);
+    t.type = "button";
+    t.title = hint;
+    t.appendChild(el("div", "tile-label", label));
+    t.appendChild(el("div", "tile-value", main));
+    if (typeof note === "string") t.appendChild(el("div", "tile-note", note));
+    else t.appendChild(note);
+    t.addEventListener("click", action);
+    return t;
+  }
+  // SYMBOL  from → to: where the move started, where it stands now. Each
+  // side can carry its percentage of yesterday's close in brackets.
+  function side(cls, price, title, pct) {
+    // The class goes on the whole side, so the bracket takes the price's colour.
+    var s = el("span", "move-side " + cls);
+    var p = el("span", "", fmt(price));
+    p.title = title;
+    s.appendChild(p);
+    if (pct !== undefined) s.appendChild(el("span", "move-pct", "(" + signed(pct) + "%)"));
+    return s;
+  }
+  function move(symbol, from, to, fromTitle, toTitle, fromPct, toPct) {
+    var note = el("div", "tile-move");
+    note.appendChild(el("span", "move-symbol", symbol));
+    var prices = el("span", "move-prices");
+    prices.append(side("move-from", from, fromTitle, fromPct), el("span", "move-arrow", "→"),
+      side("move-to", to, toTitle, toPct));
+    note.appendChild(prices);
+    return note;
+  }
+  function clearAll() {
+    state = { search: "", group: "", filters: [] };
+    search.value = "";
+    groupSelect.value = "";
+    renderFilters();
+    render();
+  }
+  // Scrolls to a symbol's row and flashes it; a row the filters hide is
+  // brought back by clearing them first.
+  function jump(row) {
+    return function () {
+      if (!row) return;
+      if (!matches(row)) clearAll();
+      var tr = null;
+      for (var i = 0; i < tbody.children.length; i++) {
+        if (tbody.children[i].getAttribute("data-symbol") === row.symbol) tr = tbody.children[i];
+      }
+      if (!tr) return;
+      var still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      tr.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "center" });
+      tr.classList.add("flash");
+      setTimeout(function () { tr.classList.remove("flash"); }, 1600);
+    };
+  }
+  var gain = extreme(rows, "change", function (a, b) { return a > b; });
+  var loss = extreme(rows, "change", function (a, b) { return a < b; });
+  // A pullback is a drop from a rise that is still holding a gain: only
+  // symbols that traded above yesterday's close today and stand above it
+  // now are in the running.
+  var pullback = extreme(rows.filter(function (r) { return r.rose_first && r.change > 0; }), "pullback",
+    function (a, b) { return a > b; });
+  var belowCount = rows.filter(function (r) { return r.below; }).length;
+  var tiles = document.getElementById("tiles");
+  tiles.appendChild(tile("", "Watchlist", String(rows.length), "symbols screened",
+    "Show every symbol: clears the search and filters", clearAll));
+  tiles.appendChild(gain && gain.change > 0
+    ? tile("gain", "Top gainer", signed(gain.change) + "%", move(gain.symbol, gain.prev, gain.last, "Previous close", "Current"),
+        "Go to " + gain.symbol + "'s row", jump(gain))
+    : tile("", "Top gainer", "–", "nothing up today", "Nothing is up today", jump(null)));
+  tiles.appendChild(loss && loss.change < 0
+    ? tile("loss", "Top loser", signed(loss.change) + "%", move(loss.symbol, loss.prev, loss.last, "Previous close", "Current"),
+        "Go to " + loss.symbol + "'s row", jump(loss))
+    : tile("", "Top loser", "–", "nothing down today", "Nothing is down today", jump(null)));
+  tiles.appendChild(pullback && pullback.pullback > 0
+    ? tile("pullback", "Deepest pullback", fmt(pullback.pullback) + "%", move(pullback.symbol, pullback.high, pullback.last,
+        "Day's high (High%)", "Current (Change%)", pullback.high_pct, pullback.change),
+        "Go to " + pullback.symbol + "'s row", jump(pullback))
+    : tile("", "Deepest pullback", "–", "nothing up and off its high", "Nothing is up and off its high", jump(null)));
+  var belowTile = tile(belowCount ? "alert" : "", "At/below support", String(belowCount),
+    belowCount ? "of " + rows.length + " on the watchlist" : "every symbol above its level",
+    "Show only symbols at or below support", function () { toggle([AT_OR_BELOW], present(AT_OR_BELOW)); });
+  belowTile.setAttribute("aria-pressed", "false");
+  tiles.appendChild(belowTile);
+
+
+  // ---- table ------------------------------------------------------------------
+  // Months between when a level was set and now; a year or more is an old
+  // level, shown muted.
+  var today = new Date();
+  function age(s) { return (today.getFullYear() * 12 + today.getMonth() + 1) - (s.year * 12 + s.month); }
+  function percent(n) { return (n > 0 ? "+" : n < 0 ? "\u2212" : "") + Math.abs(n).toFixed(1) + "%"; }
+  // The level and how far the price is from it, `613.45 · −8.4%`, with the
+  // month it was set in a tooltip that hover, focus or a tap reveals.
+  function supportCell(row) {
+    var s = row.support;
+    var td = el("td", "support");
+    if (s.kind === "level") {
+      var old = age(s) >= 12;
+      var years = Math.floor(age(s) / 12);
+      var set = "Set " + MONTHS[s.month - 1] + " " + s.year +
+        (old ? ", over " + (years === 1 ? "a year" : years + " years") + " ago" : "");
+      if (s.stale) set += "; from an earlier refresh";
+      var tip = el("span", "tip" + (old ? " old" : ""));
+      tip.tabIndex = 0;
+      tip.setAttribute("data-tip", set);
+      tip.appendChild(el("span", "", fmt(s.price)));
+      tip.appendChild(el("span", "away " + tone(row.away), " \u00b7 " + percent(row.away)));
+      tip.appendChild(el("span", "sr-only", ". " + set));
+      td.appendChild(tip);
+    } else if (s.kind === "at_low") {
+      td.appendChild(el("span", "pill low", "All-time low"));
+    } else if (s.kind === "none") {
+      td.appendChild(el("span", "dim", "–"));
+    } else {
+      td.appendChild(el("span", "pill none", s.label));
+    }
+    return td;
+  }
+  // Up and down in green and red; a signal with no direction stays neutral.
+  var BADGE_TONES = { "EMA\u2191": "up", "EMA\u2193": "down", "Support break": "down" };
+  function badgeCell(row) {
+    var td = el("td", "left badges");
+    row.signals.forEach(function (label) {
+      td.appendChild(el("span", "badge-signal " + (BADGE_TONES[label] || "flat"), label));
+    });
+    return td;
+  }
+  // The short name a cell shows before its number in the two-line phone layout.
+  function labelled(td, label) { td.setAttribute("data-label", label); return td; }
+  // The day's range as a track from low to high, a marker at the current
+  // price and a faint tick at yesterday's close when it falls inside it.
+  // Up or down on the day, the marker and the stretch from yesterday's close
+  // to it take green or red; a close outside the range starts that stretch
+  // at the nearer edge.
+  function at(price, row) {
+    var span = row.high - row.low;
+    return span > 0 ? (price - row.low) / span * 100 : 50;
+  }
+  function rangeCell(row) {
+    var td = el("td", "range");
+    var dir = tone(row.change);
+    var way = dir === "pos" ? "Up " : dir === "neg" ? "Down " : "Flat";
+    var words = way + (dir ? Math.abs(row.change).toFixed(2) + "%" : "") + " on the day \u00b7 Low " +
+      fmt(row.low) + " \u00b7 High " + fmt(row.high) + " \u00b7 Current " + fmt(row.last);
+    td.title = words;
+    var track = el("span", "track");
+    track.setAttribute("aria-hidden", "true");
+    var inside = row.prev >= row.low && row.prev <= row.high;
+    if (dir) {
+      var from = inside ? at(row.prev, row) : row.prev < row.low ? 0 : 100;
+      var to = at(row.last, row);
+      var seg = el("span", "seg " + dir);
+      seg.style.left = Math.min(from, to) + "%";
+      seg.style.width = Math.abs(to - from) + "%";
+      track.appendChild(seg);
+    }
+    if (inside) {
+      var tick = el("span", "prev-tick");
+      tick.style.left = at(row.prev, row) + "%";
+      track.appendChild(tick);
+    }
+    var mark = el("span", "mark" + (dir ? " " + dir : ""));
+    mark.style.left = at(row.last, row) + "%";
+    track.appendChild(mark);
+    td.appendChild(track);
+    td.appendChild(el("span", "sr-only", words));
+    return td;
+  }
+  function renderRow(row) {
+    var tr = el("tr", row.below ? "below" : "");
+    tr.setAttribute("data-symbol", row.symbol);
+    var sym = el("td", "sym");
+    sym.appendChild(el("span", "sym-name", row.symbol));
+    if (row.groups.length) sym.appendChild(el("span", "groups", row.groups.join(" \u00b7 ")));
+    if (row.below) sym.title = "At/below support";
+    tr.appendChild(sym);
+    tr.appendChild(el("td", "prev", fmt(row.prev)));
+    tr.appendChild(rangeCell(row));
+    tr.appendChild(el("td", "cur", fmt(row.last)));
+    tr.appendChild(labelled(el("td", "chg " + tone(row.change), signed(row.change)), "Chg"));
+    tr.appendChild(el("td", "hpct " + tone(row.high_pct), signed(row.high_pct)));
+    // A pullback is the opportunity being looked for: 3 or more is amber,
+    // but only after a rise -- a slide from a gap down is not one.
+    tr.appendChild(labelled(el("td", "pull" + (row.rose_first && row.pullback >= 3 ? " hot" : ""), fmt(row.pullback)), "Pull"));
+    tr.appendChild(supportCell(row));
+    if (data.signals) tr.appendChild(badgeCell(row));
+    return tr;
+  }
+
+  var tbody = document.getElementById("rows");
+  function compare(a, b) {
+    var list = activeSorts();
+    for (var i = 0; i < list.length; i++) {
+      var x = a[list[i].key], y = b[list[i].key];
+      if (x === y) continue;
+      // A row with nothing to measure goes last, whichever way the sort runs.
+      if (x === null || x === undefined) return 1;
+      if (y === null || y === undefined) return -1;
+      return list[i].dir === "desc" ? y - x : x - y;
+    }
+    return a.symbol < b.symbol ? -1 : a.symbol > b.symbol ? 1 : 0;
+  }
+  var ARROW = { asc: "▲", desc: "▼" };
+  function renderSort() {
+    var list = activeSorts();
+    // The headers mark whatever order is in force, the default included.
+    document.querySelectorAll("th[data-sort]").forEach(function (th) {
+      var key = th.getAttribute("data-sort");
+      var at = -1;
+      list.forEach(function (s, i) { if (s.key === key) at = i; });
+      var rank = th.querySelector(".rank");
+      if (at === -1) {
+        th.removeAttribute("aria-sort");
+        rank.textContent = "";
+      } else {
+        th.setAttribute("aria-sort", list[at].dir === "desc" ? "descending" : "ascending");
+        // A number only once there is more than one to rank.
+        rank.textContent = list.length > 1 ? String(at + 1) : "";
+      }
+    });
+    var order = document.getElementById("order");
+    order.textContent = list.map(function (s) { return SORT_LABELS[s.key] + " " + ARROW[s.dir]; }).join(", ");
+    var tips = list.map(function (s) {
+      var d = definition(s.key);
+      return d.name + " = " + d.formula + ": " + d.means;
+    });
+    order.setAttribute("data-tip", tips.join("\n"));
+    order.setAttribute("aria-label", "Sorted by " + list.map(function (s) {
+      return SORT_LABELS[s.key] + (s.dir === "desc" ? " highest first" : " lowest first");
+    }).join(", then ") + ". " + tips.join(". "));
+    document.getElementById("reset-order").hidden = sorts.length === 0;
+    if (!defs.hidden) renderDefinitions();
+    saveHash();
+  }
+  document.querySelectorAll("button.sort").forEach(function (button) {
+    button.addEventListener("click", function () {
+      // Each header cycles on its own: lowest first, highest first, off.
+      // A column new to the list joins it last.
+      var key = button.getAttribute("data-sort");
+      var at = -1;
+      sorts.forEach(function (s, i) { if (s.key === key) at = i; });
+      if (at === -1) sorts = sorts.concat([{ key: key, dir: "asc" }]);
+      else if (sorts[at].dir === "asc") sorts = sorts.map(function (s, i) { return i === at ? { key: key, dir: "desc" } : s; });
+      else sorts = sorts.filter(function (s, i) { return i !== at; });
+      renderSort();
+      render();
+    });
+  });
+  document.getElementById("reset-order").addEventListener("click", function () {
+    sorts = [];
+    renderSort();
+    render();
+  });
+
+  var shown = [];
+  function render() {
+    shown = rows.filter(matches).sort(compare);
+    var frag = document.createDocumentFragment();
+    shown.forEach(function (row) { frag.appendChild(renderRow(row)); });
+    tbody.replaceChildren(frag);
+    document.getElementById("empty").hidden = shown.length > 0;
+    document.getElementById("showing").innerHTML =
+      "Showing <b>" + shown.length + "</b> of <b>" + rows.length + "</b>";
+    document.getElementById("clear").hidden = !state.search && !state.group && state.filters.length === 0;
+    renderPresets();
+    saveHash();
+  }
+
+  // ---- controls ---------------------------------------------------------------
+  var search = document.getElementById("search");
+  search.addEventListener("input", function () {
+    state.search = search.value.trim().toUpperCase();
+    render();
+  });
+
+  var groupSelect = document.getElementById("group");
+  option(groupSelect, "", "All groups", "");
+  data.groups.forEach(function (g) { option(groupSelect, g, g, ""); });
+  groupSelect.parentNode.hidden = data.groups.length < 2;
+  groupSelect.addEventListener("change", function () {
+    state.group = groupSelect.value;
+    render();
+  });
+  if (data.signals) document.getElementById("signals-head").hidden = false;
+
+  var filtersBox = document.getElementById("filters");
+  function option(select, key, label, selected) {
+    var o = el("option", "", label);
+    o.value = key;
+    if (key === selected) o.selected = true;
+    select.appendChild(o);
+  }
+  function renderFilters() {
+    filtersBox.replaceChildren();
+    state.filters.forEach(function (f) {
+      var row = el("div", "filter");
+      var c = column(f.column);
+      var select = el("select", "column");
+      select.id = "filter-" + f.id + "-column";
+      select.setAttribute("aria-label", "Column");
+      COLUMNS.forEach(function (k) { option(select, k.key, k.label, f.column); });
+      select.addEventListener("change", function () {
+        var was = column(f.column).flag;
+        f.column = select.value;
+        // Moving between a number and a yes/no column swaps the comparisons.
+        if (Boolean(was) !== Boolean(column(f.column).flag)) {
+          f.op = column(f.column).flag ? "is" : "gt";
+          f.value = "";
+          renderFilters();
+        }
+        render();
+      });
+      var op = el("select", "op");
+      op.id = "filter-" + f.id + "-op";
+      op.setAttribute("aria-label", "Comparison");
+      (c.flag ? FLAG_OPERATORS : OPERATORS).forEach(function (o) { option(op, o.key, o.label, f.op); });
+      op.addEventListener("change", function () { f.op = op.value; render(); });
+      var remove = el("button", "remove", "×");
+      remove.type = "button";
+      remove.setAttribute("aria-label", "Remove filter");
+      remove.addEventListener("click", function () {
+        state.filters = state.filters.filter(function (g) { return g !== f; });
+        renderFilters();
+        render();
+      });
+      if (c.flag) {
+        row.append(select, op, remove);
+      } else {
+        var input = el("input");
+        input.id = "filter-" + f.id + "-value";
+        input.type = "number";
+        input.step = "any";
+        input.inputMode = "decimal";
+        input.placeholder = "value";
+        input.value = f.value;
+        input.setAttribute("aria-label", "Value");
+        input.addEventListener("input", function () { f.value = input.value.trim(); render(); });
+        row.append(select, op, input, remove);
+      }
+      filtersBox.appendChild(row);
+    });
+  }
+  document.getElementById("add-filter").addEventListener("click", function () {
+    var f = { id: nextId++, column: "change", op: "gt", value: "" };
+    state.filters.push(f);
+    renderFilters();
+    render();
+    document.getElementById("filter-" + f.id + "-value").focus();
+  });
+  document.getElementById("clear").addEventListener("click", clearAll);
+
+  // ---- the definitions popover -------------------------------------------------
+  var defs = document.getElementById("defs");
+  var defsOpen = document.getElementById("defs-open");
+  function showDefinitions(open) {
+    if (open) renderDefinitions();
+    defs.hidden = !open;
+    defsOpen.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) document.getElementById("defs-close").focus();
+  }
+  defsOpen.addEventListener("click", function () { showDefinitions(defs.hidden); });
+  document.getElementById("defs-close").addEventListener("click", function () {
+    showDefinitions(false);
+    defsOpen.focus();
+  });
+  document.addEventListener("click", function (e) {
+    if (!defs.hidden && !defs.contains(e.target) && e.target !== defsOpen) showDefinitions(false);
+  });
+
+  // ---- keyboard ------------------------------------------------------------------
+  // `/` jumps to the search; Esc closes the definitions, or else clears the
+  // search and leaves it.
+  document.addEventListener("keydown", function (e) {
+    var t = e.target;
+    var typing = t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+    if (e.key === "/" && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      search.focus();
+      search.select();
+    } else if (e.key === "Escape") {
+      if (!defs.hidden) {
+        showDefinitions(false);
+        defsOpen.focus();
+      } else if (t === search) {
+        search.value = "";
+        state.search = "";
+        search.blur();
+        render();
+      }
+    }
+  });
+
+  // ---- copy symbols ----------------------------------------------------------------
+  var copied = document.getElementById("copied");
+  var copiedTimer = null;
+  function confirmCopy(text) {
+    copied.textContent = text;
+    clearTimeout(copiedTimer);
+    copiedTimer = setTimeout(function () { copied.textContent = ""; }, 2500);
+  }
+  // A page opened from disk has no Clipboard API; a hidden textarea does it.
+  function fallbackCopy(text) {
+    var area = el("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    var done = false;
+    try { done = document.execCommand("copy"); } catch (err) { done = false; }
+    document.body.removeChild(area);
+    return done;
+  }
+  document.getElementById("copy").addEventListener("click", function () {
+    var list = shown.map(function (r) { return r.symbol; });
+    var text = list.join(",");
+    var message = "Copied " + list.length;
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function () { confirmCopy(message); }, function () {
+        confirmCopy(fallbackCopy(text) ? message : "Copy failed");
+      });
+    } else {
+      confirmCopy(fallbackCopy(text) ? message : "Copy failed");
+    }
+  });
+
+  // ---- the view in the URL hash -------------------------------------------------------
+  // Search, group, presets, filters and sort, so a view can be bookmarked or
+  // shared: #q=INF&g=IT&p=pullbacks&f=change:gt:1&s=away:asc. Nothing else
+  // goes in it, and a hash that does not parse is ignored.
+  var hashTimer = null;
+  var restoring = true;
+  function viewHash() {
+    var parts = [];
+    if (state.search) parts.push("q=" + encodeURIComponent(state.search));
+    if (state.group) parts.push("g=" + encodeURIComponent(state.group));
+    var on = PRESETS.filter(presetOn).map(function (p) { return p.key; });
+    if (on.length) parts.push("p=" + on.join(","));
+    if (state.filters.length) {
+      parts.push("f=" + state.filters.map(function (f) {
+        return [f.column, f.op, encodeURIComponent(f.value)].join(":");
+      }).join(";"));
+    }
+    if (sorts.length) parts.push("s=" + sorts.map(function (x) { return x.key + ":" + x.dir; }).join(","));
+    return parts.join("&");
+  }
+  function saveHash() {
+    if (restoring) return;
+    clearTimeout(hashTimer);
+    hashTimer = setTimeout(function () {
+      var hash = viewHash();
+      var url = location.pathname + location.search + (hash ? "#" + hash : "");
+      try { history.replaceState(null, "", url); } catch (err) { /* opened where history is locked */ }
+    }, 250);
+  }
+  function readHash(hash) {
+    var view = { search: "", group: "", presets: [], filters: [], sorts: [] };
+    hash.split("&").forEach(function (part) {
+      if (!part) return;
+      var at = part.indexOf("=");
+      if (at < 1) throw new Error("bad part");
+      var key = part.slice(0, at), raw = part.slice(at + 1);
+      if (key === "q") {
+        view.search = decodeURIComponent(raw).trim().toUpperCase();
+      } else if (key === "g") {
+        view.group = decodeURIComponent(raw);
+        if (data.groups.indexOf(view.group) === -1) throw new Error("bad group");
+      } else if (key === "p") {
+        view.presets = raw.split(",").map(function (k) {
+          var p = PRESETS.filter(function (x) { return x.key === k; })[0];
+          if (!p) throw new Error("bad preset");
+          return p;
+        });
+      } else if (key === "f") {
+        view.filters = raw.split(";").map(function (item) {
+          var bits = item.split(":");
+          var c = bits.length === 3 && column(bits[0]);
+          var v = bits.length === 3 ? decodeURIComponent(bits[2]) : "";
+          if (!c || !operator(c, bits[1])) throw new Error("bad filter");
+          if (c.flag ? v !== "" : v !== "" && isNaN(Number(v))) throw new Error("bad value");
+          return { column: c.key, op: bits[1], value: v };
+        });
+      } else if (key === "s") {
+        view.sorts = raw.split(",").map(function (item) {
+          var bits = item.split(":");
+          if (!SORT_LABELS[bits[0]] || (bits[1] !== "asc" && bits[1] !== "desc")) throw new Error("bad sort");
+          return { key: bits[0], dir: bits[1] };
+        });
+      } else {
+        throw new Error("bad key");
+      }
+    });
+    return view;
+  }
+  function restore() {
+    var hash = location.hash.replace(/^#/, "");
+    if (!hash) return;
+    var view;
+    try { view = readHash(hash); } catch (err) { return; }
+    state.search = view.search;
+    search.value = view.search;
+    state.group = view.group;
+    groupSelect.value = view.group;
+    addFilters(view.filters);
+    view.presets.forEach(function (p) { addFilters(p.filters); });
+    sorts = view.sorts;
+    renderFilters();
+  }
+
+  restore();
+  renderSort();
+  render();
+  restoring = false;
+})();
+</script>
